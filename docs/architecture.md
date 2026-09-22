@@ -78,10 +78,15 @@ die vorab (Abschnitt 5) festgelegten Erfolgskriterien zuständig — sondern
 ## Offene Punkte, bevor WP0 als abgeschlossen gelten kann
 
 Diese Liste ist eine Eins-zu-eins-Übertragung von Exposé Abschnitt 9,
-"Offene Entscheidungen":
+"Offene Entscheidungen".
 
-- [ ] finaler Basis-Survey + Katalogversion (Phase 1) → `configs/cosmology.yaml`
-      und ein echter `TracerAdapter` ersetzen `DemoTracerAdapter`
+- [x] finaler Basis-Survey + Katalogversion (Phase 1): **SDSS DR7
+      Hauptstichprobe, volumenlimitiert, z ≲ 0,11, M_r < -20,09** — identisch
+      zum Referenz-Survey von VoidFinder/VAST (Douglass, Veyrat & BenZvi 2023,
+      ApJS 265, 7). `SDSSDR7TracerAdapter` (`layer1_tracers/sdss_dr7_adapter.py`)
+      ersetzt `DemoTracerAdapter` für echte Daten; Eingabeformat ist 1:1
+      kompatibel zur offiziellen VAST-API (`ra`, `dec`, `redshift`, `rabsmag`
+      als `ascii.commented_header`/FITS/HDF5).
 - [ ] Referenz-SN-Ia-Kompilation festlegen
 - [ ] diskrete vs. kontinuierliche Umgebungsvariable: aktuell ist
       `layer3_environment` rein diskret (void/wall); eine kontinuierliche
@@ -94,3 +99,33 @@ Diese Liste ist eine Eins-zu-eins-Übertragung von Exposé Abschnitt 9,
       (`SUCCESS_CRITERIA["null_result"]["max_H0_contribution_percent"]`)
 - [ ] Mindeststichprobengröße für das Abbruchkriterium
       (`SUCCESS_CRITERIA["abort_criterion"]["min_calibrator_sample_size"]`)
+- [ ] **neuer WP1-Punkt**: `SDSSDR7TracerAdapter` liefert aktuell nur grobe
+      Bounding-Box-Randoms (`n_synthetic_randoms`) oder erwartet einen
+      selbst mitgebrachten Random-Katalog (`randoms_path`) — für eine echte
+      VoidFinder-Analyse fehlt noch ein maskenbasierter Random-Katalog
+      (z. B. via SDSS-DR7-Fußabdruckmaske/pymangle oder HEALPix). Ebenso ist
+      `footprint_area_deg2()` aktuell nur eine RA/Dec-Bounding-Box-Näherung,
+      keine sphärisch/maskenkorrekte Fläche.
+
+## Echten SDSS-DR7-Katalog anbinden (WP1)
+
+```python
+from voidh0.layer1_tracers import SDSSDR7TracerAdapter
+
+adapter = SDSSDR7TracerAdapter(
+    catalog_path="/pfad/zu/vollim_dr7_cbp_102709.dat",
+    randoms_path="/pfad/zu/einem/random-katalog.dat",  # optional
+)
+tracers = adapter.load()
+```
+
+Bezugsquellen für eine echte Katalogdatei (nicht im Repository, da
+Drittanbieter-Datenprodukt mit mehreren zehn MB):
+
+- VAST-Beispielkatalog `vollim_dr7_cbp_102709.dat` im GitHub-Repo `DESI-UR/VAST`
+  (`VAST/example_scripts/`)
+- Peer-reviewte Void-Kataloge zu Douglass, Veyrat & BenZvi (2023),
+  ApJS 265, 7 — auf Zenodo unter "VAST void catalogs for SDSS DR7"
+
+Benötigt zusätzlich `astropy` (nur für diesen einen Adapter, siehe
+`pip install -e ".[dev]"`); der Rest des Frameworks bleibt astropy-frei.
