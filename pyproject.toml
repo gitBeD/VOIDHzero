@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voidh0"
+version = "0.0.1"
+description = "Galaxien in kosmischen Void-Umgebungen als moeglicher systematischer Faktor fuer H0 - WP0 Framework-Skelett"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "voidh0 project" }]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "astropy>=5.3",  # optional cross-check gegen Schicht-0-Eigenimplementierung
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

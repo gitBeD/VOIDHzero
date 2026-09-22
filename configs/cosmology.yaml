@@ -1,0 +1,22 @@
+# Schicht 0 — die EINE Referenzkosmologie des Projekts.
+# Aenderungen an dieser Datei sind ein Analyseplan-Ereignis: sie muessen im
+# Analyseplan-Changelog dokumentiert werden (siehe docs/architecture.md).
+#
+# Werte: Planck-artige FlatLambdaCDM, als Platzhalter fuer WP0.
+# Vor Einfrieren des Analyseplans (M6) verbindlich festzulegen (siehe Exposé
+# Abschnitt 9, "Offene Entscheidungen").
+
+name: "reference_flcdm_v0"
+model: "FlatLambdaCDM"
+H0_km_s_Mpc: 67.4          # H0 in km/s/Mpc, NUR fuer diese Referenzkosmologie
+                            # (nicht zu verwechseln mit dem H0, das gemessen werden soll)
+Om0: 0.315                 # Materiedichteparameter heute
+Ob0: 0.049                 # baryonische Dichte (informativ, aktuell ungenutzt)
+Tcmb0_K: 2.7255
+Neff: 3.046
+units: "h-1 Mpc"           # alle Laengen im Framework in h^-1 Mpc, siehe Schicht 0
+notes: >
+  Platzhalterwerte fuer die Frameworkentwicklung (WP0). Die finale
+  Referenzkosmologie wird vor Abschluss von WP0 festgelegt und dieser Block
+  danach nicht mehr veraendert, um Zirkularitaet (Void-Kataloge sind selbst
+  kosmologieabhaengig konstruiert, siehe Abschnitt 9) kontrolliert zu halten.
