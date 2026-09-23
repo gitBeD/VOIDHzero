@@ -148,3 +148,53 @@ adapter = SDSSDR7TracerAdapter(
     randoms_mode="bbox",  # statt "mask" (Default)
 )
 ```
+
+## Schicht 2: echte VAST/VoidFinder-Anbindung — WICHTIGER PLATTFORM-HINWEIS
+
+`VASTVoidFinderAdapter` (`layer2_voidfinder/vast_adapter.py`) liest die
+**offizielle VAST-Ausgabedatei** (`[survey_name]_VoidFinder_Output.fits`,
+HDUs `MAXIMALS`/`HOLES`/optional `MASK`) ein — er führt VoidFinder NICHT
+in-process aus. Grund: Die VAST-Entwickler unterstützen Windows offiziell
+NICHT (Cython-Kern lässt sich dort nicht zuverlässig kompilieren, zusätzlich
+fehlt der von VoidFinder benötigte POSIX-`fork()`-Systemaufruf) — siehe
+https://vast.readthedocs.io/en/latest/VAST_install.html.
+
+**Workflow für einen echten Lauf (auf Windows z. B. via WSL2):**
+
+1. In WSL2/Linux (oder einer Linux-VM/einem Cluster): VAST offiziell
+   installieren (`git clone https://github.com/DESI-UR/VAST`, dann
+   `python setup.py install` gemäß deren Anleitung)
+2. Den mit `SDSSDR7TracerAdapter` erzeugten Katalog (oder direkt die
+   `vollim_dr7_cbp_102709.dat`) in `VAST/example_scripts/SDSS_VoidFinder_dr7.py`
+   einsetzen und laufen lassen
+3. Die entstehende `[survey_name]_VoidFinder_Output.fits` zurück nach Windows
+   kopieren (WSL2 hat direkten Zugriff auf `C:\...`, umgekehrt auch)
+4. In voidh0:
+   ```python
+   from voidh0.layer2_voidfinder import VASTVoidFinderAdapter
+
+   adapter = VASTVoidFinderAdapter("/pfad/zu/survey_VoidFinder_Output.fits")
+   voids = adapter.find_voids(tracers)  # tracers wird nur fuer Interface-
+                                          # Kompatibilitaet erwartet, nicht
+                                          # zur Berechnung verwendet
+   labels = adapter.classify(ra, dec, z, voids)
+   ```
+
+**Kosmologie-Konsistenz (wichtig!):** Die (ra, dec, z) → (x, y, z)-Umrechnung
+in `classify()` MUSS dieselbe Kosmologie verwenden, mit der VoidFinder extern
+lief. Standardmäßig nutzt der Adapter Schicht 0
+(`load_reference_cosmology()`); lief der externe VoidFinder-Aufwand mit
+anderem `h`/`Ωm`, muss das per `cosmology=`-Argument übergeben werden —
+sonst sind die Sphere-Vergleiche in `classify()` inkonsistent (genau die
+"Kosmologie-Zirkularität" aus Abschnitt 9).
+
+**Sphärengenaue Klassifikation:** Anders als `DemoVoidFinderAdapter` nutzt
+`classify()` hier die volle `HOLES`-Tabelle (Union aller Spheres eines
+Voids), nicht nur die Maximal-Sphere — exakt VASTs eigene Definition
+("Is my object in a void?" in der VAST-Doku). Ist eine `MASK`-HDU in der
+Ausgabedatei vorhanden, werden Objekte außerhalb der Survey-Maske als
+`"edge"` markiert.
+
+`DemoVoidFinderAdapter` bleibt für Framework-Entwicklung/Tests ohne
+WSL2-Abhängigkeit nutzbar; `VASTVoidFinderAdapter` ist der Weg zu einem
+echten, publikationsfähigen Void-Katalog.
