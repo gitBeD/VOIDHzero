@@ -14,7 +14,7 @@ try:
 except ImportError:
     HAS_ASTROPY = False
 
-from voidh0.layer0_cosmology import load_reference_cosmology
+from voidh0.layer0_cosmology import ReferenceCosmology, load_reference_cosmology
 from voidh0.layer1_tracers import DemoTracerAdapter
 
 
@@ -86,6 +86,15 @@ class TestVASTVoidFinderAdapter(unittest.TestCase):
         _make_vast_output_fits(self.fits_path, self.cosmology)
         self.tracers = DemoTracerAdapter(n_objects=10, n_randoms=10, seed=0).load()
 
+        # Provenienz-Sidecar erzeugen, damit die Standard-Pruefung
+        # (require_provenance=True) fuer die bestehenden Tests nicht
+        # fehlschlaegt -- separate Tests unten pruefen die Validierung selbst.
+        from voidh0.layer2_voidfinder.provenance import write_provenance
+
+        self.source_catalog_path = Path(self.tmpdir.name) / "dummy_source_catalog.dat"
+        self.source_catalog_path.write_text("ra dec redshift\n150.0 5.0 0.05\n")
+        write_provenance(self.fits_path, self.cosmology, self.source_catalog_path)
+
     def tearDown(self):
         self.tmpdir.cleanup()
 
@@ -119,7 +128,7 @@ class TestVASTVoidFinderAdapter(unittest.TestCase):
         bad_path = Path(self.tmpdir.name) / "bad.fits"
         fits.HDUList([fits.PrimaryHDU()]).writeto(bad_path)
 
-        adapter = VASTVoidFinderAdapter(bad_path, cosmology=self.cosmology)
+        adapter = VASTVoidFinderAdapter(bad_path, cosmology=self.cosmology, require_provenance=False)
         with self.assertRaises(KeyError):
             adapter.find_voids(self.tracers)
 
@@ -180,11 +189,50 @@ class TestVASTVoidFinderAdapter(unittest.TestCase):
         no_mask_path = Path(self.tmpdir.name) / "no_mask.fits"
         _make_vast_output_fits(no_mask_path, self.cosmology, include_mask=False)
 
+        from voidh0.layer2_voidfinder.provenance import write_provenance
+
+        write_provenance(no_mask_path, self.cosmology, self.source_catalog_path)
+
         adapter = VASTVoidFinderAdapter(no_mask_path, cosmology=self.cosmology)
         voids = adapter.find_voids(self.tracers)
         labels = adapter.classify(np.array([10.0]), np.array([-30.0]), np.array([0.09]), voids)
         # ohne Maske gibt es keine "edge"-Klassifikation -- nur void/wall
         self.assertIn(labels[0], ("void", "wall"))
+
+    def test_missing_provenance_raises_by_default(self):
+        from voidh0.layer2_voidfinder import VASTVoidFinderAdapter
+        from voidh0.layer2_voidfinder.provenance import ProvenanceMissingError
+
+        no_provenance_path = Path(self.tmpdir.name) / "no_provenance.fits"
+        _make_vast_output_fits(no_provenance_path, self.cosmology)
+        # bewusst KEIN write_provenance() hier
+
+        adapter = VASTVoidFinderAdapter(no_provenance_path, cosmology=self.cosmology)
+        with self.assertRaises(ProvenanceMissingError):
+            adapter.find_voids(self.tracers)
+
+    def test_require_provenance_false_skips_check(self):
+        from voidh0.layer2_voidfinder import VASTVoidFinderAdapter
+
+        no_provenance_path = Path(self.tmpdir.name) / "no_provenance2.fits"
+        _make_vast_output_fits(no_provenance_path, self.cosmology)
+
+        adapter = VASTVoidFinderAdapter(
+            no_provenance_path, cosmology=self.cosmology, require_provenance=False
+        )
+        voids = adapter.find_voids(self.tracers)  # darf NICHT wegen Provenienz scheitern
+        self.assertEqual(len(voids), 1)
+
+    def test_cosmology_mismatch_raises(self):
+        from voidh0.layer2_voidfinder import VASTVoidFinderAdapter
+        from voidh0.layer2_voidfinder.provenance import ProvenanceMismatchError
+
+        different_cosmology = ReferenceCosmology(
+            name="other_cosmology", H0_km_s_Mpc=70.0, Om0=0.3
+        )
+        adapter = VASTVoidFinderAdapter(self.fits_path, cosmology=different_cosmology)
+        with self.assertRaises(ProvenanceMismatchError):
+            adapter.find_voids(self.tracers)
 
 
 if __name__ == "__main__":

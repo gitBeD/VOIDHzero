@@ -198,3 +198,33 @@ Ausgabedatei vorhanden, werden Objekte außerhalb der Survey-Maske als
 `DemoVoidFinderAdapter` bleibt für Framework-Entwicklung/Tests ohne
 WSL2-Abhängigkeit nutzbar; `VASTVoidFinderAdapter` ist der Weg zu einem
 echten, publikationsfähigen Void-Katalog.
+
+## Kosmologie-Konsistenz jetzt geprüft, nicht nur dokumentiert
+
+Der obige Abschnitt beschrieb die Kosmologie-Konsistenz-Anforderung bisher
+nur als Empfehlung — `VASTVoidFinderAdapter` prüft sie jetzt tatsächlich
+(`layer2_voidfinder/provenance.py`):
+
+1. Direkt nach einem externen VoidFinder-Lauf (WSL2/Linux):
+   ```bash
+   python3 scripts/write_voidfinder_provenance.py \
+       --output survey_VoidFinder_Output.fits \
+       --source-catalog vollim_dr7_cbp_102709.dat
+   ```
+   Schreibt `survey_VoidFinder_Output.fits.provenance.json` daneben — hält
+   fest, mit welcher Kosmologie (H0, Om0) und welchem (per SHA-256
+   geprüften) Eingabekatalog gerechnet wurde.
+
+2. Diese `.provenance.json`-Datei muss zusammen mit der `.fits`-Datei zurück
+   nach Windows kopiert werden.
+
+3. `VASTVoidFinderAdapter.find_voids()` liest sie automatisch und **bricht
+   standardmäßig ab** (`ProvenanceMissingError`/`ProvenanceMismatchError`),
+   wenn die Sidecar-Datei fehlt oder H0/Om0 nicht zur aktuell aktiven
+   Schicht-0-Kosmologie passen — statt still falsche Ergebnisse zu liefern.
+   Für schnelle Experimente ohne diese Prüfung: `require_provenance=False`
+   (nicht empfohlen für publikationsreife Läufe).
+
+Damit ist die "Kosmologie-Zirkularität" aus Abschnitt 9 an dieser Stelle
+nicht mehr nur eine Doku-Empfehlung, sondern eine tatsächlich durchgesetzte
+Bedingung.

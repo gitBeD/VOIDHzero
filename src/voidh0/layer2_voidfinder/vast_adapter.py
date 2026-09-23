@@ -52,6 +52,7 @@ import numpy as np
 from ..layer0_cosmology import ReferenceCosmology, load_reference_cosmology
 from ..layer1_tracers.base import TracerCatalog
 from .base import VoidCatalog, VoidFinderAdapter
+from .provenance import read_provenance, validate_provenance
 
 
 def ra_dec_z_to_xyz(
@@ -87,10 +88,14 @@ class VASTVoidFinderAdapter(VoidFinderAdapter):
         output_fits_path: str | Path,
         cosmology: ReferenceCosmology | None = None,
         edge_via_mask: bool = True,
+        require_provenance: bool = True,
+        expected_source_catalog_path: str | Path | None = None,
     ) -> None:
         self.output_fits_path = Path(output_fits_path)
         self.cosmology = cosmology if cosmology is not None else load_reference_cosmology()
         self._edge_via_mask = edge_via_mask
+        self._require_provenance = require_provenance
+        self._expected_source_catalog_path = expected_source_catalog_path
 
         self._holes_x: np.ndarray | None = None
         self._holes_y: np.ndarray | None = None
@@ -131,6 +136,17 @@ class VASTVoidFinderAdapter(VoidFinderAdapter):
                 "(z.B. in WSL2/Linux mit der offiziellen VAST-Installation, "
                 "siehe Moduldocstring)."
             )
+
+        # Kosmologie-/Provenienz-Pruefung VOR jedem Datei-Lesen: verhindert,
+        # dass ein VoidFinder-Lauf mit inkonsistenter Kosmologie still
+        # akzeptiert wird (Exposé Abschnitt 9, "Kosmologie-Zirkularitaet").
+        provenance = read_provenance(self.output_fits_path)
+        validate_provenance(
+            provenance,
+            self.cosmology,
+            require=self._require_provenance,
+            expected_source_catalog_path=self._expected_source_catalog_path,
+        )
 
         fits = self._require_astropy()
         with fits.open(self.output_fits_path, memmap=False) as hdul:
