@@ -111,15 +111,35 @@ Diese Liste ist eine Eins-zu-eins-Übertragung von Exposé Abschnitt 9,
       **Offener Folgepunkt (RF-D-Ticket)**: kontinuierliche
       Umgebungsdichte-Variable als zweiter, paralleler Pfad neben der
       diskreten void/wall-Klassifikation (Schicht 3, nicht Schicht 2 — die
-      Layer-Regel aus Abschnitt 6 gilt auch hier). Naheliegendster Ansatz:
-      VoidFinder/VAST führt für die Void-Identifikation intern bereits eine
-      Voronoi-Tesselation durch; falls dieses Zwischenergebnis aus einem
-      externen VAST-Lauf mit exportiert werden kann, ließe sich die lokale
-      Dichte daraus für Schicht 3 wiederverwenden, statt sie separat (z.B.
-      per kNN-Distanz oder Kernel-Dichteschätzung) neu zu berechnen — spart
-      Rechenzeit und hält Konsistenz mit der diskreten Klassifikation
-      automatisch. Ob das technisch zugänglich ist, ist vor der Umsetzung zu
-      prüfen (offen).
+      Layer-Regel aus Abschnitt 6 gilt auch hier).
+      **Korrektur einer früheren Annahme**: `VASTVoidFinderAdapter`
+      (Schicht 2, s.o.) liest VoidFinder-Ausgaben — VoidFinder selbst ist ein
+      Sphere-Growing-Algorithmus (El-Ad & Piran 1997; Hoyle & Vogeley 2002),
+      der Voids als Vereinigung von Kugeln definiert (`MAXIMALS`/`HOLES`);
+      es gibt dabei KEINE Voronoi-Zellvolumina als Zwischenergebnis. Die
+      Voronoi-Tesselation steckt stattdessen in **V² (Vsquared)**, dem
+      zweiten, ZOBOV-basierten (Neyrinck 2008) Watershed-Algorithmus im
+      VAST-Toolkit — bestätigt in der VAST-Dokumentation
+      (https://vast.readthedocs.io/en/latest/Vsquared_intro.html): V²
+      "first produces a Voronoi tessellation ... and the volumes of the
+      Voronoi cells are used to identify local density minima". Das ist
+      ohnehin der in Exposé Abschnitt 6 für Phase 1 vorgesehene
+      "ZOBOV-basierte Kreuzcheck" und wird für RF-B (≥ 2 unabhängige
+      Void-Finder-Algorithmen, WP1) so oder so gebraucht.
+      **Damit zwei konkrete Optionen statt einer offenen Design-Frage:**
+      - **Option A (bevorzugt)**: kontinuierliche Dichte aus den
+        V²/Vsquared-Voronoi-Zellvolumina — praktisch kostenlos, sobald der
+        V²-Adapter für den WP1-Robustheitscheck ohnehin gebaut wird (kein
+        zusätzlicher Rechenlauf, nur ein zusätzliches Datum aus einem
+        bereits geplanten Lauf).
+      - **Option B (Fallback)**: eigenständiger kNN- oder DTFE-Schätzer,
+        unabhängig von beiden Adaptern — mehr Implementierungsaufwand, aber
+        entkoppelt vom V²-Zeitplan, falls dieser sich verzögert.
+      **Nächster Schritt vor Implementierung** (reine Recherche, kein
+      Design): prüfen, ob `vast.vsquared` die Voronoi-Zellvolumina der
+      Tracer tatsächlich als zugängliches Zwischenergebnis exportiert
+      (nicht nur die fertigen Void-/Zonen-Kataloge) — falls ja, Option A;
+      falls nein, Option B.
 - [ ] Kollaborationsrahmen
 - [ ] Rechenressourcen/Datenvolumen für Phase 3 (Rubin/Roman)
 - [ ] echter, sicher verwahrter Blinding-Seed (aktuell nur Demo-Default in
