@@ -87,10 +87,39 @@ Diese Liste ist eine Eins-zu-eins-Übertragung von Exposé Abschnitt 9,
       ersetzt `DemoTracerAdapter` für echte Daten; Eingabeformat ist 1:1
       kompatibel zur offiziellen VAST-API (`ra`, `dec`, `redshift`, `rabsmag`
       als `ascii.commented_header`/FITS/HDF5).
-- [ ] Referenz-SN-Ia-Kompilation festlegen
-- [ ] diskrete vs. kontinuierliche Umgebungsvariable: aktuell ist
-      `layer3_environment` rein diskret (void/wall); eine kontinuierliche
-      Dichtevariable ist als zweiter, paralleler Pfad zu ergänzen (RF-D)
+- [x] **Referenz-SN-Ia-Kompilation festgelegt**: **Pantheon+ & SH0ES**
+      (Scolnic et al. 2022, ApJ 938, 113; Brout et al. 2022, ApJ 938, 110;
+      Riess et al. 2022, ApJL 934, L7). 1701 Lichtkurven für 1550
+      spektroskopisch bestätigte SNe Ia, `0.001 < z < 2.26`, öffentlich unter
+      https://github.com/PantheonPlusSH0ES/DataRelease.
+      **Begründung** (direkt WP2/RF-C-relevant): Pantheon+ ist die einzige
+      der drei geprüften Kompilationen (Pantheon+, Union3, DES-SN5YR), die
+      öffentlich **individuelle Koordinaten sowohl der Kalibrator-Stichprobe
+      (Cepheiden-/TRGB-Wirte, per `IS_CALIBRATOR`-Flag markiert) als auch der
+      Hubble-Flow-Stichprobe** liefert — exakt das Cross-Match-Datenpaar, das
+      WP2 (COVE, Δf_void) braucht. Union3 liegt nur als gebinnte
+      Distanzmodul-Tabelle vor (keine Einzelobjekt-Koordinaten); DES-SN5YR
+      fixiert H0 extern statt eine eigene Kalibrator-Host-Stichprobe zu
+      führen. Beide sind daher für die "Kalibrator vs. Hubble-Flow"-
+      Fragestellung strukturell schlechter geeignet, obwohl sie für reine
+      Kosmologie-Fits attraktiv sind.
+      **Standardisierung**: übernommen (SALT2-Standardisierung wie von
+      Pantheon+ veröffentlicht), nicht neu gefittet — Kapazität bleibt für
+      den Umgebungs-Step statt für einen SN-Standardisierungs-Neufit.
+      **Optional**: Union3 als Robustheits-Cross-Check in WP4/WP5, falls
+      Zeit vorhanden ist — nicht als Ersatz für Pantheon+.
+      **Offener Folgepunkt (RF-D-Ticket)**: kontinuierliche
+      Umgebungsdichte-Variable als zweiter, paralleler Pfad neben der
+      diskreten void/wall-Klassifikation (Schicht 3, nicht Schicht 2 — die
+      Layer-Regel aus Abschnitt 6 gilt auch hier). Naheliegendster Ansatz:
+      VoidFinder/VAST führt für die Void-Identifikation intern bereits eine
+      Voronoi-Tesselation durch; falls dieses Zwischenergebnis aus einem
+      externen VAST-Lauf mit exportiert werden kann, ließe sich die lokale
+      Dichte daraus für Schicht 3 wiederverwenden, statt sie separat (z.B.
+      per kNN-Distanz oder Kernel-Dichteschätzung) neu zu berechnen — spart
+      Rechenzeit und hält Konsistenz mit der diskreten Klassifikation
+      automatisch. Ob das technisch zugänglich ist, ist vor der Umsetzung zu
+      prüfen (offen).
 - [ ] Kollaborationsrahmen
 - [ ] Rechenressourcen/Datenvolumen für Phase 3 (Rubin/Roman)
 - [ ] echter, sicher verwahrter Blinding-Seed (aktuell nur Demo-Default in
