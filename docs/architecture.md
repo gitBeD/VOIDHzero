@@ -99,13 +99,20 @@ Diese Liste ist eine Eins-zu-eins-Übertragung von Exposé Abschnitt 9,
       (`SUCCESS_CRITERIA["null_result"]["max_H0_contribution_percent"]`)
 - [ ] Mindeststichprobengröße für das Abbruchkriterium
       (`SUCCESS_CRITERIA["abort_criterion"]["min_calibrator_sample_size"]`)
-- [ ] **neuer WP1-Punkt**: `SDSSDR7TracerAdapter` liefert aktuell nur grobe
-      Bounding-Box-Randoms (`n_synthetic_randoms`) oder erwartet einen
-      selbst mitgebrachten Random-Katalog (`randoms_path`) — für eine echte
-      VoidFinder-Analyse fehlt noch ein maskenbasierter Random-Katalog
-      (z. B. via SDSS-DR7-Fußabdruckmaske/pymangle oder HEALPix). Ebenso ist
-      `footprint_area_deg2()` aktuell nur eine RA/Dec-Bounding-Box-Näherung,
-      keine sphärisch/maskenkorrekte Fläche.
+- [x] **neuer WP1-Punkt, erledigt**: `SDSSDR7TracerAdapter` verwendet jetzt
+      standardmäßig (`randoms_mode="mask"`) eine aus dem Datenkatalog
+      abgeleitete, gepixelte Fußabdruckmaske (`layer1_tracers/mask_randoms.py`)
+      statt einer reinen RA/Dec-Bounding-Box: sphärisch korrekte Zufalls­positionen
+      innerhalb belegter Gitterzellen (uniform in RA, uniform in sin(Dec),
+      Zellen flächengewichtet ausgewählt) und Redshifts durch Resampling aus
+      der empirischen n(z)-Verteilung der Daten statt uniform in z.
+      `footprint_area_deg2()` liefert nach einem `mask`-Lauf die sphärisch
+      exakte Maskenfläche statt der groben Bounding-Box-Fläche.
+      **Bewusste Einschränkung**: das ist noch keine echte photometrische
+      Survey-Maske (Mangle-Polygone/offizielle HEALPix-Maske mit
+      Bohrlöchern für helle Sterne, Plattenränder etc.) — dafür bräuchte es
+      `pymangle` oder die offizielle SDSS-DR7-Maskendatei. Der alte
+      `randoms_mode="bbox"` bleibt zu Vergleichszwecken erhalten.
 
 ## Echten SDSS-DR7-Katalog anbinden (WP1)
 
@@ -129,3 +136,15 @@ Drittanbieter-Datenprodukt mit mehreren zehn MB):
 
 Benötigt zusätzlich `astropy` (nur für diesen einen Adapter, siehe
 `pip install -e ".[dev]"`); der Rest des Frameworks bleibt astropy-frei.
+
+Standardmäßig (`randoms_mode="mask"`) werden Randoms aus einer gepixelten
+Fußabdruckmaske gezogen, die direkt aus dem eingelesenen Katalog abgeleitet
+wird — kein zusätzlicher Dateibedarf. Für den einfacheren Vergleichsmodus:
+
+```python
+adapter = SDSSDR7TracerAdapter(
+    catalog_path="...",
+    n_synthetic_randoms=50_000,
+    randoms_mode="bbox",  # statt "mask" (Default)
+)
+```

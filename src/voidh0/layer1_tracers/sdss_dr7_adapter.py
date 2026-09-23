@@ -25,12 +25,15 @@ Drittanbieter-Datenprodukt, mehrere zehn MB):
     Suche nach "VAST void catalogs for SDSS DR7"
 
 Randoms: WICHTIG -- diese Klasse kann optional einen echten Random-Katalog
-einlesen (`randoms_path`), oder ersatzweise grobe Bounding-Box-Randoms
-generieren (`n_synthetic_randoms`). Letzteres ist AUSDRUECKLICH KEIN Ersatz
-fuer einen maskenbasierten Random-Katalog (z.B. via der SDSS-DR7-
-Fussabdruckmaske/pymangle) -- siehe Warnhinweis in `load()`. Ein echter,
-maskenbasierter Random-Katalog ist einer der noch offenen WP1-Punkte
-(siehe docs/architecture.md).
+einlesen (`randoms_path`), oder ersatzweise synthetische Randoms erzeugen
+(`n_synthetic_randoms`). Fuer Letzteres gibt es zwei Modi (`randoms_mode`):
+`"mask"` (Default) zieht sphaerisch-korrekte Positionen aus einer aus dem
+Datenkatalog abgeleiteten, gepixelten Fussabdruckmaske und Redshifts aus der
+empirischen n(z)-Verteilung der Daten (siehe `mask_randoms.py`); `"bbox"`
+ist die einfachere RA/Dec-Bounding-Box-Naeherung (nur zu Vergleichszwecken
+erhalten). Beides ist AUSDRUECKLICH KEIN Ersatz fuer eine echte, offizielle
+Survey-Maske (Mangle-Polygone/HEALPix mit Bohrloechern etc.) -- siehe
+Warnhinweis und Grenzen-Diskussion in `mask_randoms.py`.
 """
 from __future__ import annotations
 
@@ -39,6 +42,11 @@ from pathlib import Path
 import numpy as np
 
 from .base import TracerAdapter, TracerCatalog
+from .mask_randoms import (
+    build_footprint_mask,
+    sample_positions_in_mask,
+    sample_redshifts_from_nz,
+)
 
 # Absoluter r-Band-Helligkeitsschnitt des Standard-VAST/VoidFinder-
 # volumenlimitierten SDSS-DR7-Katalogs (Pan et al. 2012; Douglass et al.
@@ -74,6 +82,10 @@ class SDSSDR7TracerAdapter(TracerAdapter):
         redshift_col: str = "redshift",
         rabsmag_col: str = "rabsmag",
         n_synthetic_randoms: int = 0,
+        randoms_mode: str = "mask",
+        mask_cell_size_deg: float = 1.0,
+        mask_min_objects_per_cell: int = 1,
+        redshift_smoothing_sigma: float = 0.0,
         seed: int = 0,
     ) -> None:
         self.catalog_path = Path(catalog_path)
@@ -86,8 +98,15 @@ class SDSSDR7TracerAdapter(TracerAdapter):
         self._redshift_col = redshift_col
         self._rabsmag_col = rabsmag_col
         self._n_synthetic_randoms = n_synthetic_randoms
+        if randoms_mode not in ("mask", "bbox"):
+            raise ValueError(f"randoms_mode muss 'mask' oder 'bbox' sein, nicht {randoms_mode!r}")
+        self._randoms_mode = randoms_mode
+        self._mask_cell_size_deg = mask_cell_size_deg
+        self._mask_min_objects_per_cell = mask_min_objects_per_cell
+        self._redshift_smoothing_sigma = redshift_smoothing_sigma
         self._seed = seed
         self._footprint_cache: tuple[float, float, float, float] | None = None
+        self._footprint_mask_cache = None
 
     def redshift_limits(self) -> tuple[float, float]:
         return (self._z_min, self._z_max)
@@ -170,7 +189,7 @@ class SDSSDR7TracerAdapter(TracerAdapter):
         if rabsmag is not None:
             extra["rabsmag"] = rabsmag[keep]
 
-        ra_r, dec_r, z_r = self._build_randoms(ra_o, dec_o, z_col, table)
+        ra_r, dec_r, z_r = self._build_randoms(ra_o, dec_o, z_o)
 
         ra_all = np.concatenate([ra_o, ra_r])
         dec_all = np.concatenate([dec_o, dec_r])
@@ -200,39 +219,64 @@ class SDSSDR7TracerAdapter(TracerAdapter):
             extra=extra,
         )
 
-    def _build_randoms(self, ra_o, dec_o, z_col, object_table):
+    def _build_randoms(self, ra_o, dec_o, z_o):
         if self.randoms_path is not None:
             rtable = self._read_table(self.randoms_path)
-            r_z_col = z_col if z_col in rtable.colnames else self._resolve_redshift_column(rtable)
+            r_z_col = self._resolve_redshift_column(rtable)
             ra_r = np.asarray(rtable[self._ra_col], dtype=float)
             dec_r = np.asarray(rtable[self._dec_col], dtype=float)
             z_r = np.asarray(rtable[r_z_col], dtype=float)
             keep_r = (z_r >= self._z_min) & (z_r <= self._z_max)
             return ra_r[keep_r], dec_r[keep_r], z_r[keep_r]
 
-        if self._n_synthetic_randoms > 0:
-            # ACHTUNG: reine Bounding-Box-Randoms, NICHT maskenbasiert.
-            # Fuer eine echte VoidFinder-Analyse braucht es einen
-            # maskenbasierten Random-Katalog (z.B. via der SDSS-DR7-
-            # Fussabdruckmaske/pymangle oder HEALPix-Maske) -- offener
-            # WP1-Punkt, siehe docs/architecture.md. Diese Randoms sind nur
-            # ein Platzhalter, um die TracerCatalog-Schnittstelle vollstaendig
-            # zu bedienen, WAEHREND ein echter Random-Katalog noch fehlt.
-            rng = np.random.default_rng(self._seed)
+        if self._n_synthetic_randoms <= 0:
+            return np.array([]), np.array([]), np.array([])
+
+        rng = np.random.default_rng(self._seed)
+
+        if self._randoms_mode == "bbox":
+            # Einfachste Naeherung, nur zu Vergleichszwecken erhalten: eine
+            # einzelne RA/Dec-Bounding-Box, uniform in RA UND Dec (sphaerisch
+            # NICHT korrekt) und uniform in z (ignoriert die radiale
+            # Selektionsfunktion). Siehe Docstring fuer die Einschraenkungen.
             ra_r = rng.uniform(ra_o.min(), ra_o.max(), size=self._n_synthetic_randoms)
             dec_r = rng.uniform(dec_o.min(), dec_o.max(), size=self._n_synthetic_randoms)
             z_r = rng.uniform(self._z_min, self._z_max, size=self._n_synthetic_randoms)
             return ra_r, dec_r, z_r
 
-        return np.array([]), np.array([]), np.array([])
+        # randoms_mode == "mask" (Default): gepixelte Fussabdruckmaske aus
+        # den beobachteten Objektpositionen + sphaerisch korrekte Ziehung
+        # innerhalb der belegten Zellen + Redshifts aus der empirischen n(z).
+        mask = build_footprint_mask(
+            ra_o,
+            dec_o,
+            cell_size_deg=self._mask_cell_size_deg,
+            min_objects_per_cell=self._mask_min_objects_per_cell,
+        )
+        self._footprint_mask_cache = mask
+
+        ra_r, dec_r = sample_positions_in_mask(mask, self._n_synthetic_randoms, rng)
+        z_r = sample_redshifts_from_nz(
+            z_observed=z_o,
+            n_samples=self._n_synthetic_randoms,
+            rng=rng,
+            smoothing_sigma=self._redshift_smoothing_sigma,
+        )
+        return ra_r, dec_r, z_r
 
     def footprint_area_deg2(self) -> float:
         if self._footprint_cache is None:
             raise RuntimeError(
                 "footprint_area_deg2() ist erst nach einem load()-Aufruf verfuegbar."
             )
+        if self._footprint_mask_cache is not None:
+            # Bevorzugt: sphaerisch korrekte Flaeche der gepixelten Maske
+            # (siehe mask_randoms.GriddedFootprintMask.solid_angle_deg2),
+            # verfuegbar sobald randoms_mode='mask' mindestens einmal
+            # gelaufen ist.
+            return self._footprint_mask_cache.solid_angle_deg2()
         ra_min, ra_max, dec_min, dec_max = self._footprint_cache
-        # Grobe Rechteck-Naeherung im RA/Dec-Bounding-Box-Sinn, NICHT
-        # sphaerisch exakt und NICHT maskenkorrigiert -- Platzhalter,
-        # analog zu den synthetischen Randoms ein offener WP1-Punkt.
+        # Fallback: grobe Rechteck-Naeherung im RA/Dec-Bounding-Box-Sinn,
+        # NICHT sphaerisch exakt -- nur falls (noch) keine Maske gebaut wurde
+        # (z.B. randoms_mode='bbox' oder n_synthetic_randoms=0 ohne randoms_path).
         return (ra_max - ra_min) * (dec_max - dec_min)

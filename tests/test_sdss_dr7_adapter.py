@@ -44,6 +44,39 @@ class TestSDSSDR7TracerAdapter(unittest.TestCase):
         cat = adapter.load()
         self.assertEqual(cat.n_randoms, 50)
 
+    def test_mask_mode_is_default_and_uses_gridded_mask(self):
+        adapter = SDSSDR7TracerAdapter(catalog_path=CATALOG, n_synthetic_randoms=100, seed=2)
+        self.assertEqual(adapter._randoms_mode, "mask")
+        cat = adapter.load()
+        self.assertEqual(cat.n_randoms, 100)
+        # Nach dem Lauf sollte die gepixelte Maske gecacht sein und eine
+        # sphaerisch korrekte Flaeche liefern.
+        area = adapter.footprint_area_deg2()
+        self.assertGreater(area, 0.0)
+
+    def test_bbox_mode_still_available_for_comparison(self):
+        adapter = SDSSDR7TracerAdapter(
+            catalog_path=CATALOG, n_synthetic_randoms=50, seed=3, randoms_mode="bbox"
+        )
+        cat = adapter.load()
+        self.assertEqual(cat.n_randoms, 50)
+
+    def test_rejects_invalid_randoms_mode(self):
+        with self.assertRaises(ValueError):
+            SDSSDR7TracerAdapter(catalog_path=CATALOG, randoms_mode="nonsense")
+
+    def test_mask_mode_random_redshifts_within_observed_range(self):
+        adapter = SDSSDR7TracerAdapter(
+            catalog_path=CATALOG, z_min=0.0, z_max=0.114, n_synthetic_randoms=200, seed=4
+        )
+        cat = adapter.load()
+        z_randoms = cat.z[cat.is_random]
+        # z(randoms) muss aus der beobachteten n(z) resampled sein, also
+        # innerhalb des beobachteten Wertebereichs liegen (Default: kein Jitter).
+        z_objects = cat.z[~cat.is_random]
+        self.assertGreaterEqual(z_randoms.min(), z_objects.min() - 1e-9)
+        self.assertLessEqual(z_randoms.max(), z_objects.max() + 1e-9)
+
     def test_real_randoms_file_is_used(self):
         adapter = SDSSDR7TracerAdapter(catalog_path=CATALOG, randoms_path=RANDOMS)
         cat = adapter.load()
