@@ -49,29 +49,14 @@ from pathlib import Path
 
 import numpy as np
 
+from ..geometry import ra_dec_z_to_xyz
 from ..layer0_cosmology import ReferenceCosmology, load_reference_cosmology
 from ..layer1_tracers.base import TracerCatalog
 from .base import VoidCatalog, VoidFinderAdapter
 from .provenance import read_provenance, validate_provenance
 
 
-def ra_dec_z_to_xyz(
-    ra_deg: np.ndarray, dec_deg: np.ndarray, z: np.ndarray, cosmology: ReferenceCosmology
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Wandelt (ra, dec, z) in kartesische (x, y, z) in h^-1 Mpc um.
 
-    Dieselbe Konvention wie VAST (`vast.voidfinder.ra_dec_to_xyz`): rechts-
-    haendiges System, dec von der Aequatorialebene aus gemessen, comoving
-    distance aus Schicht-0-Referenzkosmologie.
-    """
-    ra_rad = np.deg2rad(np.asarray(ra_deg, dtype=float))
-    dec_rad = np.deg2rad(np.asarray(dec_deg, dtype=float))
-    r = np.atleast_1d(cosmology.comoving_distance_h1Mpc(z))
-
-    x = r * np.cos(dec_rad) * np.cos(ra_rad)
-    y = r * np.cos(dec_rad) * np.sin(ra_rad)
-    z_cart = r * np.sin(dec_rad)
-    return x, y, z_cart
 
 
 class VASTVoidFinderAdapter(VoidFinderAdapter):

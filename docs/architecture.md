@@ -140,6 +140,29 @@ Diese Liste ist eine Eins-zu-eins-Übertragung von Exposé Abschnitt 9,
       Tracer tatsächlich als zugängliches Zwischenergebnis exportiert
       (nicht nur die fertigen Void-/Zonen-Kataloge) — falls ja, Option A;
       falls nein, Option B.
+      **Rechercheergebnis (erledigt)**: Die Standard-`.fits`-Ausgabe von V²
+      (`GALZONE`-HDU: `gal`, `zone`, `depth`, `edge`, `out`) exportiert
+      **keine** Zellvolumina — nur die fertige Zonen-/Void-Zugehörigkeit.
+      Eine Wiederverwendung wäre also kein kostenloses Nebenprodukt eines
+      ohnehin geplanten V²-Laufs, sondern erforderte einen
+      nicht-standardmäßigen Eingriff. **Damit gewählt: Option B**, aber
+      NICHT als eigenständiger kNN-/DTFE-Schätzer, sondern als eigene
+      Voronoi-Tesselation direkt mit `scipy.spatial` (Kernabhängigkeit,
+      keine VAST-/Windows-Abhängigkeit) — implementiert in
+      `layer3_environment/density.py`
+      (`compute_local_density()`/`voronoi_cell_volumes()`). Lokale Dichte
+      = inverses Voronoi-Zellvolumen relativ zum **Median** (nicht
+      Mittelwert — Zellvolumina sind rechtsschief verteilt, ein
+      Mittelwert-Referenzwert würde durch einzelne sehr große Randzellen
+      verzerrt). Objekte mit unbeschränkter Zelle (Rand der Punktwolke)
+      werden als `is_edge_cell=True` markiert statt einen irreführenden
+      endlichen Wert zu bekommen. 22 Tests, laufen vollständig ohne
+      astropy. **Bewusste verbleibende Einschränkung**: keine
+      Randoms-/Masken-Korrektur der Tesselation selbst — echte
+      Randobjekte innerhalb der Survey-Maske, aber nahe am Rand der
+      Tracer-Punktwolke, können noch künstlich unterschätzte Dichte haben;
+      nächster Verfeinerungsschritt wäre eine Tesselation über
+      Tracer+Randoms gemeinsam.
 - [ ] Kollaborationsrahmen
 - [ ] Rechenressourcen/Datenvolumen für Phase 3 (Rubin/Roman)
 - [ ] echter, sicher verwahrter Blinding-Seed (aktuell nur Demo-Default in

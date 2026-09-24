@@ -1,3 +1,4 @@
+from ..geometry import ra_dec_z_to_xyz
 from .base import VoidFinderAdapter, VoidCatalog
 from .demo_adapter import DemoVoidFinderAdapter
 from .provenance import (
@@ -8,7 +9,7 @@ from .provenance import (
     validate_provenance,
     write_provenance,
 )
-from .vast_adapter import VASTVoidFinderAdapter, ra_dec_z_to_xyz
+from .vast_adapter import VASTVoidFinderAdapter
 
 __all__ = [
     "VoidFinderAdapter",
