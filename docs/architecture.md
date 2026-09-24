@@ -300,3 +300,34 @@ nur als Empfehlung — `VASTVoidFinderAdapter` prüft sie jetzt tatsächlich
 Damit ist die "Kosmologie-Zirkularität" aus Abschnitt 9 an dieser Stelle
 nicht mehr nur eine Doku-Empfehlung, sondern eine tatsächlich durchgesetzte
 Bedingung.
+
+## WP2-Diagnosekriterium: Kalibrator-Umgebungs-Überlappung (Review-Ergänzung)
+
+Ergänzung zum Exposé (Abschnitt 9, "Neu: Kalibrator-Umgebungs-Überlappung"):
+Die Pantheon+/SH0ES-Kalibratoren (Cepheiden/TRGB-Wirte) liegen überwiegend
+bei z ≲ 0,01 (≲ 40–45 Mpc) — eine Größenordnung näher als die für Phase 1
+vorgesehene SDSS-DR7-Grenze (z ≲ 0,11). Gerade in diesem hellen,
+nahen Helligkeitsbereich hat die SDSS-DR7-Hauptstichprobe-Spektroskopie
+dokumentierte Inkomplettheiten (Fiber-Magnitude-Schnitt, Shredding großer
+heller Galaxien, 55″-Fiber-Kollisionen — siehe Strauss et al. 2002 und die
+offizielle SDSS-Zielauswahl-Dokumentation). Die Anzahl der Cepheiden-Wirte
+ist deshalb NICHT gleichzusetzen mit der Anzahl der für die
+VoidFinder-Umgebungsklassifikation tatsächlich verfügbaren Kalibratoren.
+
+**Konsequenz für WP2 (Code-Ebene)**: Der COVE-Cross-Match (WP2) sollte pro
+Kalibrator-Wirt vier Flags erheben, nicht nur ein binäres void/wall-Label:
+
+1. SDSS-photometrische Deckung vorhanden?
+2. SDSS-spektroskopischer Redshift vorhanden?
+3. Umgebungsklassifikation mit hinreichender Robustheitsstufe möglich
+   (vgl. `layer3_environment.assign_environment`-Robustheitsflag)?
+4. resultierende Void/Wand-Klassifikation.
+
+Das ist mit den bereits vorhandenen Bausteinen (`SDSSDR7TracerAdapter`,
+`assign_environment`) direkt umsetzbar, sobald eine öffentliche
+Kalibrator-Koordinatenliste (Pantheon+/SH0ES-`DataRelease`,
+`IS_CALIBRATOR`-Flag) als Eingabe vorliegt — noch nicht implementiert,
+aber als nächster WP2-Schritt hier vermerkt. Volle Risiko-/Mitigations-
+Formulierung inkl. der drei Ausweichstrategien (hybrider Low-z-Katalog,
+erweiterte Kalibratorstichprobe via JWST/TRGB/JAGB, invertierte
+Analyselogik) steht im Exposé, Abschnitt 9.
