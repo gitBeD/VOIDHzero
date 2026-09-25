@@ -10,4 +10,5 @@ dist/
 analysis_plan/frozen_plan.json
 data/raw/
 data/interim/
+data/external/
 .DS_Store

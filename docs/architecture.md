@@ -331,3 +331,22 @@ aber als nächster WP2-Schritt hier vermerkt. Volle Risiko-/Mitigations-
 Formulierung inkl. der drei Ausweichstrategien (hybrider Low-z-Katalog,
 erweiterte Kalibratorstichprobe via JWST/TRGB/JAGB, invertierte
 Analyselogik) steht im Exposé, Abschnitt 9.
+
+## WP2-Skript: HOST_RA/HOST_DEC-Fallback (empirischer Fund, 24.09.2026)
+
+Erster echter Lauf von `scripts/wp2_calibrator_diagnosis.py` gegen die reale
+`Pantheon+SH0ES.dat` ergab `n_with_position: 0` von 77 Kalibratoren --
+zunächst überraschend. Ursache: Im offiziellen Pantheon+/SH0ES-Datenrelease
+ist das dedizierte `HOST_RA`/`HOST_DEC`-Feld durchgehend mit `-999`
+(fehlend) belegt; die SN-eigenen `RA`/`DEC`-Spalten sind dagegen gefüllt.
+
+**Fix**: `wp2_cove._resolve_position()` fällt jetzt automatisch auf die
+SN-Position zurück, wenn `HOST_RA`/`HOST_DEC` fehlen -- methodisch
+vertretbar, da eine Supernova innerhalb ihrer Wirtsgalaxie explodiert und
+ihre Position auf der für den SDSS-Crossmatch nötigen Bogensekunden-
+Genauigkeit eine gute Näherung ist. Jede `CalibratorDiagnosisRow` trägt
+jetzt `position_source` (`"host"` / `"sn_position"` / `"missing"`) zur
+Transparenz -- wichtig für die spätere Fehlerbudget-Diskussion in WP4,
+falls die SN-Host-Winkel-Trennung (`HOST_ANGSEP`, im echten Release
+teilweise auch `-9`/fehlend) für einzelne Kalibratoren doch relevant groß
+sein sollte.
