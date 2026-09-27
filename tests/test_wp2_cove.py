@@ -10,6 +10,7 @@ from voidh0.wp2_cove import (
     angular_separation_deg,
     build_diagnosis_table,
     crossmatch_sdss_spec,
+    find_duplicate_cids,
     load_pantheon_calibrators,
     summarize,
 )
@@ -18,12 +19,17 @@ FIXTURE = Path(__file__).resolve().parent / "fixtures" / "mini_pantheon_sh0es.da
 
 
 class TestLoadPantheonCalibrators(unittest.TestCase):
-    def test_loads_only_calibrator_rows(self):
+    def test_loads_only_calibrator_rows_deduplicated_by_default(self):
         cal = load_pantheon_calibrators(FIXTURE)
-        # 3 Zeilen mit IS_CALIBRATOR=1 in der Fixture
+        # Fixture: 4 Zeilen mit IS_CALIBRATOR=1, davon 2x "2011fe" (Duplikat)
+        # -> 3 eindeutige Kalibratoren nach Dedup.
         self.assertEqual(len(cal), 3)
 
-    def test_calibrator_cids_correct(self):
+    def test_deduplicate_false_returns_raw_rows(self):
+        cal = load_pantheon_calibrators(FIXTURE, deduplicate=False)
+        self.assertEqual(len(cal), 4)  # inkl. der doppelten 2011fe-Zeile
+
+    def test_calibrator_cids_correct_after_dedup(self):
         cal = load_pantheon_calibrators(FIXTURE)
         cids = {str(c) for c in cal["CID"]}
         self.assertEqual(cids, {"2011fe", "1994ae", "missinghost"})
@@ -40,6 +46,22 @@ class TestLoadPantheonCalibrators(unittest.TestCase):
             bad_path.write_text("CID zHD IS_CALIBRATOR\nfoo 0.01 1\n")
             with self.assertRaises(KeyError):
                 load_pantheon_calibrators(bad_path)
+
+
+class TestFindDuplicateCids(unittest.TestCase):
+    def test_finds_the_one_duplicated_cid(self):
+        raw = load_pantheon_calibrators(FIXTURE, deduplicate=False)
+        dupes = find_duplicate_cids(raw)
+        self.assertEqual(dupes, {"2011fe": 2})
+
+    def test_no_duplicates_after_dedup(self):
+        deduped = load_pantheon_calibrators(FIXTURE, deduplicate=True)
+        dupes = find_duplicate_cids(deduped)
+        self.assertEqual(dupes, {})
+
+    def test_empty_input_returns_empty_dict(self):
+        empty = load_pantheon_calibrators(FIXTURE)[:0]
+        self.assertEqual(find_duplicate_cids(empty), {})
 
 
 class TestAngularSeparation(unittest.TestCase):

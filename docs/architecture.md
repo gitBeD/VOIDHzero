@@ -350,3 +350,65 @@ Transparenz -- wichtig für die spätere Fehlerbudget-Diskussion in WP4,
 falls die SN-Host-Winkel-Trennung (`HOST_ANGSEP`, im echten Release
 teilweise auch `-9`/fehlend) für einzelne Kalibratoren doch relevant groß
 sein sollte.
+
+## WP2-Skript: Deduplizierung nach eindeutiger Kalibrator-Galaxie
+
+Ergänzung zum obigen HOST_RA/HOST_DEC-Fund: Der echte Lauf zeigte zusätzlich,
+dass die 77 IS_CALIBRATOR=1-Zeilen NICHT 77 verschiedene Galaxien sind,
+sondern 77 Lichtkurven-Einträge -- dieselbe Supernova (gleiche CID) taucht
+mehrfach auf, weil mehrere Analyse-Pipelines (`IDSURVEY`) sie unabhängig
+gefittet haben (z.B. `2007af` viermal). Das löst die im Exposé offen
+gelassene "77 vs. 42"-Unstimmigkeit auf: Riess et al. (2022) meinen mit
+"42 Type Ia supernovae" im Titel die eindeutigen Galaxien, nicht die
+Lichtkurven-Zeilen.
+
+`load_pantheon_calibrators()` dedupliziert jetzt standardmäßig
+(`deduplicate=True`) nach CID, behält pro eindeutiger Galaxie die erste
+Zeile in Datei-Reihenfolge. `find_duplicate_cids()` macht die Duplikate vor
+der Deduplizierung transparent (welche CID wie oft). Das CLI-Skript zeigt
+beide Zahlen (roh vs. dedupliziert) und listet die gefundenen Duplikate.
+
+**Bewusste Einschränkung**: reiner CID-Exakt-Match. Fälle wie `2005df` vs.
+`2005df_ANU` (vermutlich dieselbe Supernova, andere Team-Pipeline, andere
+Schreibweise) werden NICHT automatisch zusammengeführt -- das bräuchte eine
+zusätzliche, fallweise Prüfung (z.B. Redshift- oder Positions-Übereinstimmung)
+und ist ein offener Verfeinerungspunkt für WP2.
+
+## WP2 Flag 2: 0/43 SDSS-Spec-Matches — strukturell erklärt, nicht defekt (26.09.2026)
+
+Echter Lauf von `wp2_calibrator_diagnosis.py --sdss-catalog
+data/external/vollim_dr7_cbp_102709.dat` gegen alle 43 eindeutigen
+Kalibrator-Galaxien ergab **0 SDSS-Spec-Matches**. Diagnose (Linux-Team):
+kein einziger Kalibrator hat überhaupt einen SDSS-Tracer innerhalb von
+3 Bogensekunden — das Problem liegt schon vor der Redshift-Toleranzprüfung.
+Beispiel: nächstes Objekt zu SN 2011fe (z≈0,00122) liegt 8,34 Bogenminuten
+entfernt bei z≈0,099.
+
+**Ursache (durch Literatur bestätigt, nicht nur vermutet)**: `vollim_dr7_
+cbp_102709.dat` ist die volumenlimitierte Stichprobe aus Pan et al. (2012),
+auf der `VASTVoidFinderAdapter` aufbaut — und diese Stichprobe beginnt
+selbst erst bei z ≈ 0,01 (Pan et al. 2012 zitiert nach Nachfolgearbeiten:
+Void-Redshifts "0.01 ≲ z ≲ 0.102"). Die Pantheon+/SH0ES-Kalibratoren liegen
+überwiegend deutlich darunter (Median weit unter 0,01; nur `2007A`,
+z=0,0168, und `1999dq`, z=0,0131, erreichen überhaupt die Untergrenze der
+Tracer-Stichprobe). Die 0/43-Quote ist damit eine STRUKTURELLE Folge der
+Katalogkonstruktion, kein Bug in `crossmatch_sdss_spec()` oder in der
+Positionsermittlung (die für Flag 1 bereits korrekt validiert wurde).
+
+Damit ist das in Abschnitt 9 des Exposés als Risiko formulierte Szenario
+("unzureichende Überlappung von Distanzkalibratoren und vollständiger
+3D-Galaxienkartierung") nicht mehr nur eine begründete Befürchtung, sondern
+mit echten Daten quantifiziert bestätigt: 0 von 43 (0 %) — schlimmer als im
+Risikotext ursprünglich befürchtet.
+
+**Empfohlener nächster Schritt**: NASA-Sloan Atlas (NSA) statt
+`vollim_dr7_cbp_102709.dat` als Tracer-Quelle für den SDSS-Crossmatch.
+Douglass, Veyrat & BenZvi (2023) sind selbst von der KIAS-VAGC/NYU-VAGC-
+Basis (Pan et al. 2012) auf NSA umgestiegen, mit der Begründung: "the NSA
+better handles large galaxies, preventing them from being segmented into a
+number of spurious small unique objects" — exakt das im Exposé (Abschnitt
+9) beschriebene Shredding-Problem. NSA deckt vermutlich auch den sehr
+niedrigen z-Bereich (< 0,01) besser ab, in dem die Kalibratoren liegen.
+Noch nicht umgesetzt — Bezugsquelle und exaktes Format sind ein offener
+Rechercheschritt, bevor `SDSSDR7TracerAdapter` oder ein neuer
+`NSATracerAdapter` darauf aufgesetzt werden kann.

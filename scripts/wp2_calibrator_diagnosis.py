@@ -28,6 +28,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from voidh0.wp2_cove import (  # noqa: E402
     build_diagnosis_table,
+    find_duplicate_cids,
     load_pantheon_calibrators,
     summarize,
 )
@@ -46,8 +47,18 @@ def main() -> None:
     parser.add_argument("--out", default=None, help="CSV-Ausgabepfad (optional)")
     args = parser.parse_args()
 
-    calibrators = load_pantheon_calibrators(args.pantheon)
-    print(f"{len(calibrators)} Kalibrator-Zeilen (IS_CALIBRATOR=1) in {args.pantheon} gefunden.")
+    calibrators_raw = load_pantheon_calibrators(args.pantheon, deduplicate=False)
+    calibrators = load_pantheon_calibrators(args.pantheon, deduplicate=True)
+
+    dupes = find_duplicate_cids(calibrators_raw)
+    print(
+        f"{len(calibrators_raw)} Kalibrator-Zeilen (IS_CALIBRATOR=1) in {args.pantheon} gefunden, "
+        f"davon {len(calibrators)} eindeutige Kalibrator-Galaxien nach Deduplizierung."
+    )
+    if dupes:
+        print(f"\n{len(dupes)} CIDs mit mehreren Lichtkurven-Einträgen (nur die erste wird verwendet):")
+        for cid, n in sorted(dupes.items(), key=lambda kv: -kv[1]):
+            print(f"  {cid}: {n}x")
 
     sdss_ra = sdss_dec = sdss_z = None
     if args.sdss_catalog:

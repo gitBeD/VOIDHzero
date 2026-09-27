@@ -45,12 +45,33 @@ class CalibratorDiagnosisRow:
     environment_class: str | None  # Flag 4 (None = pending)
 
 
-def load_pantheon_calibrators(path: str | Path) -> np.ndarray:
+def load_pantheon_calibrators(path: str | Path, deduplicate: bool = True) -> np.ndarray:
     """Lädt nur die Kalibrator-Zeilen (IS_CALIBRATOR == 1) aus Pantheon+SH0ES.dat.
 
     Erwartet das offizielle Pantheon+/SH0ES-DataRelease-Format
     (leerzeichengetrennt, erste Zeile = Spaltennamen), u.a. mit den Spalten
     `CID`, `zHD`, `HOST_RA`, `HOST_DEC`, `IS_CALIBRATOR`.
+
+    **Wichtiger empirischer Befund (echter Lauf, 25.09.2026)**: Die 77
+    IS_CALIBRATOR=1-Zeilen in Pantheon+SH0ES.dat sind NICHT 77 verschiedene
+    Kalibrator-Galaxien, sondern 77 Lichtkurven-Einträge -- dieselbe
+    Supernova (gleiche CID) taucht mehrfach auf, weil mehrere Analyse-
+    Pipelines/Teams (unterschiedliche `IDSURVEY`) sie unabhängig gefittet
+    haben (z.B. `2007af` viermal, `2011fe` zweimal). Löst nebenbei die im
+    Exposé offen gelassene "77 vs. 42"-Unstimmigkeit auf (Riess et al. 2022
+    nennt im Titel "42 Type Ia supernovae" -- das ist die Zahl der
+    eindeutigen Galaxien, nicht der Lichtkurven-Zeilen).
+
+    `deduplicate=True` (Default) behält pro eindeutiger CID nur die erste
+    Zeile in Datei-Reihenfolge -- für die Umgebungsklassifikation zählt die
+    Galaxie, nicht der einzelne Lichtkurven-Fit. `deduplicate=False` liefert
+    die rohen 77 Zeilen (z.B. für Transparenz-/Debug-Zwecke).
+
+    HINWEIS: Das ist ein einfacher CID-Exakt-Match. Faelle wie
+    `2005df` vs. `2005df_ANU` (vermutlich dieselbe Supernova, andere
+    Team-Pipeline, andere CID-Schreibweise) werden dadurch NICHT
+    zusammengeführt -- das würde zusätzliche, fallweise Prüfung brauchen
+    und ist ein offener Verfeinerungspunkt, kein automatischer Fix hier.
     """
     path = Path(path)
     if not path.exists():
@@ -68,7 +89,24 @@ def load_pantheon_calibrators(path: str | Path) -> np.ndarray:
             f"Vorhandene Spalten: {data.dtype.names}"
         )
     is_cal = data["IS_CALIBRATOR"].astype(int) == 1
-    return data[is_cal]
+    calibrators = data[is_cal]
+
+    if not deduplicate:
+        return calibrators
+
+    _, first_occurrence_idx = np.unique(calibrators["CID"], return_index=True)
+    return calibrators[np.sort(first_occurrence_idx)]
+
+
+def find_duplicate_cids(calibrators: np.ndarray) -> dict[str, int]:
+    """Zählt, wie oft jede CID in `calibrators` vorkommt -- nur Einträge > 1.
+
+    Nützlich für Transparenz: mit `load_pantheon_calibrators(path,
+    deduplicate=False)` aufrufen, um zu sehen, welche/wie viele Kalibratoren
+    mehrfach als Lichtkurve auftauchen, bevor dedupliziert wird.
+    """
+    cids, counts = np.unique(calibrators["CID"], return_counts=True)
+    return {str(c): int(n) for c, n in zip(cids, counts) if n > 1}
 
 
 def angular_separation_deg(
