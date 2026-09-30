@@ -412,3 +412,47 @@ niedrigen z-Bereich (< 0,01) besser ab, in dem die Kalibratoren liegen.
 Noch nicht umgesetzt — Bezugsquelle und exaktes Format sind ein offener
 Rechercheschritt, bevor `SDSSDR7TracerAdapter` oder ein neuer
 `NSATracerAdapter` darauf aufgesetzt werden kann.
+
+## WP2/DLR: NSA-v1.0.1-Qualitätsregel für SERSIC_TH50-Sentinel (27.09.2026)
+
+Während der Host-Zuordnung per Directional Light Radius (DLR-Methode,
+siehe unten) fiel bei der Kontrollprobe für SN 2011fe auf, dass mehrere
+NSA-Kandidaten im Suchkegel denselben ungewöhnlich großen `SERSIC_TH50`-Wert
+trugen. Systematische Prüfung über den gesamten NSA-v1.0.1-Katalog:
+
+**Empirische NSA-v1.0.1-Qualitätsregel**: `SERSIC_TH50 = 159,7578125″`
+tritt in 4.802 von 641.409 NSA-Einträgen (0,75 %) exakt identisch auf. Der
+Wert zeigt eine starke Häufung und tritt zusammen mit Sérsic-Index-Werten
+an den Modellgrenzen (`n=0,5` bzw. `n=6,0`) auf. Dies wird als empirischer
+Hinweis auf eine algorithmische Begrenzung bzw. nicht vertrauenswürdige
+Sérsic-Geometrie interpretiert. **Die Interpretation ist nicht durch die
+offizielle NSA-Dokumentation bestätigt.** Daher werden solche Kandidaten in
+WP2 aus der DLR-Hostzuordnung ausgeschlossen, ohne den jeweiligen
+SN-Kalibrator zu verwerfen.
+
+Zusatzbefunde, die die Interpretation stützen (aber sie nicht offiziell
+belegen):
+- Der Wert ist eine exakte dyadische Zahl (`20449/128`, Nenner = 2⁷) —
+  ungewöhnlich für ein genuines Fit-Ergebnis an kontinuierlichen Bilddaten.
+- Räumlich über den gesamten Himmel verteilt (RA 0,002°–359,906°,
+  Dec −22,0°–+82,4°) — kein lokales Deblending-Cluster eines einzelnen
+  großen Systems (z. B. M101), sondern katalogweit.
+- `SERSIC_N=0,5` bzw. `6,0` allein ist bewusst **kein** eigenständiges
+  Ausschlusskriterium — beide Werte kommen auch bei Objekten mit normalem
+  `TH50` vor; nur die Kombination mit dem exakten Sentinel-Wert ist
+  aussagekräftig.
+
+**Umsetzung** (nur in der DLR-spezifischen Pipeline
+`scripts/wp2_nsa_dlr_diagnosis.py`, NICHT in `scripts/wp2_nsa_diagnosis.py`
+oder `wp2_dlr_control_2011fe.py`, die unverändert bleiben):
+- `TH50_SENTINEL = 159.7578125`, `TH50_SENTINEL_ATOL = 1e-6`
+- Kandidat wird nur aus dem DLR-Ranking entfernt, der Kalibrator bleibt
+  erhalten
+- kein Petrosian-Fallback (siehe 2011fe-Befund: `PETRO_TH50` kann bei
+  großen nahen Galaxien um Faktor ~80 zu klein sein, wäre also kein
+  verlässlicher Ersatzwert)
+- bleibt kein valider Kandidat übrig → Status explizit
+  "keine vertrauenswürdige Geometrie gefunden", nicht stillschweigend
+  "kein Host"
+- Ausschlüsse werden pro Kalibrator im Ergebnis-Output mitgezählt
+  (`n_excluded_sentinel`), nicht kommentarlos verworfen
