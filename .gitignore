@@ -10,5 +10,16 @@ dist/
 analysis_plan/frozen_plan.json
 data/raw/
 data/interim/
-data/external/
 .DS_Store
+
+# Drittanbieter-Rohdaten (nicht versionieren)
+data/external/Pantheon+SH0ES.dat
+data/external/nsa_v1_0_1.fits
+data/external/vollim_dr7_cbp_102709.*
+
+# Grosse rohe Service-Antworten (nicht versionieren, reproduzierbar)
+data/external/ned_position_audit_raw/
+
+# Lokale Backups und Windows-Metadaten
+data/external/*.bak
+data/external/*:Zone.Identifier
