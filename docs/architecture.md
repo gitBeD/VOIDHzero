@@ -413,6 +413,19 @@ Noch nicht umgesetzt — Bezugsquelle und exaktes Format sind ein offener
 Rechercheschritt, bevor `SDSSDR7TracerAdapter` oder ein neuer
 `NSATracerAdapter` darauf aufgesetzt werden kann.
 
+## WP2: VoidFinder-Tracerkatalog – Positionsaudit der Kalibratoren
+
+Der VoidFinder-Tracerkatalog ist als Referenz für einen direkten 3″-Crossmatch
+der 43 Kalibratoren ungeeignet: 29 Positionen liegen außerhalb des
+umschließenden RA/Dec-Rechtecks. Bei den 14 Positionen innerhalb des Rechtecks
+liegt das nächste Katalogobjekt jeweils 166–852″ entfernt. Damit gibt es auch
+innerhalb des umschließenden Rechtecks keinen knapp verfehlten 3″-Match.
+Die grobe Katalog-Flächendichte legt nahe, dass diese Abstände nicht auf eine
+besondere räumliche Nähe zu den Katalogobjekten hinweisen; die
+Abstandsverteilung innerhalb des tatsächlichen Footprints wurde jedoch nicht
+direkt gemessen. Die Ursache der Abwesenheit – etwa eine Rotverschiebungs-
+oder Helligkeitsgrenze – ist nicht abschließend bestimmt.
+
 ## WP2/DLR: NSA-v1.0.1-Qualitätsregel für SERSIC_TH50-Sentinel (27.09.2026)
 
 Während der Host-Zuordnung per Directional Light Radius (DLR-Methode,
