@@ -20,7 +20,7 @@ Reference table:
 Verified input:
 
 - 43 CID rows
-- 35 unique hosts
+- 37 unique hosts
 
 The resolver accepts only the closed reference-table statuses:
 
@@ -45,7 +45,7 @@ host-matching radius.
 
 ### Automatically consistent
 
-7 of 35 unique hosts were resolved consistently by SIMBAD and NED
+30 of 37 unique hosts were resolved consistently by SIMBAD and NED
 with angular separation <= 1 arcsec.
 
 Examples include:
@@ -83,16 +83,15 @@ SIMBAD coordinate references:
 - NGC 1365: `2006AJ....131.1163S`
 - NGC 3447: `2020yCat.1350....0G`
 
-### NED query timeouts
+### Provisional SIMBAD-only references
 
-25 of 35 unique hosts returned a SIMBAD resolution but a NED
-`query_error` caused by a 60-second read timeout.
+7 of 37 unique hosts currently have a provisional SIMBAD-only
+reference because a consistent SIMBAD/NED resolution could not be
+established by the resolver.
 
-These cases are unresolved due to service accessibility and are
-not interpreted as scientific host mismatches.
-
-They remain `review_required` until an independent NED resolution
-can be obtained.
+These cases remain `review_required` and are not interpreted as
+scientific host mismatches. The SIMBAD coordinates are retained as
+provisional reference values pending independent verification.
 
 ## Current status
 
@@ -113,3 +112,40 @@ SIMBAD and NED.
 
 No automatic change to the reference host assignments is made
 on the basis of coordinate differences alone.
+
+## Source-table cross-check: four SH0ES supernovae
+
+The host assignments below were cross-checked against Riess et al. (2022),
+*A Comprehensive Measurement of the Local Value of the Hubble Constant
+with 1 km s^-1 Mpc^-1 Uncertainty from the Hubble Space Telescope and
+the SH0ES Team*, including the published SH0ES host/SN table.
+
+| CID | Host in current reference CSV | Host in SH0ES source | Assessment |
+|---|---|---|---|
+| 2005W | N0691 (NGC 691) | N0691 (NGC 691) | Corrected; matches SH0ES |
+| 1998dh | N7541 (NGC 7541) | N7541 (NGC 7541) | Corrected; matches SH0ES |
+| 2019np | N3254 (NGC 3254) | N3254 (NGC 3254) | Consistent |
+| 2017erp | N5861 (NGC 5861) | N5861 (NGC 5861) | Consistent |
+
+The previous reference CSV contained two incorrect CID-to-host assignments.
+The CSV has now been corrected to match the SH0ES source-table assignments:
+2005W -> N0691 and 1998dh -> N7541. N0691 and N7541 are now represented
+as separate hosts; 2019np -> N3254 and 2017erp -> N5861 remain unchanged.
+
+The SH0ES publication describes 37 host galaxies for 42 SNe Ia. The current
+reference CSV contains 43 CID rows and 37 unique host identifiers, including
+N0691 and N7541 after correction of the two CID-to-host assignments described
+above. An earlier version of the reference CSV contained 35 unique host
+identifiers; this historical count should not be interpreted as the current
+host count.
+
+This is a source-table cross-check, not a validation by SIMBAD/NED coordinates.
+The resolver status `exact` describes the reference-table entry/status; it
+does not independently establish that the CID-to-host association is correct.
+
+Source:
+Riess et al. (2022), ApJL, 934, L7, DOI: 10.3847/2041-8213/ac5c5b.
+Published paper: https://doi.org/10.3847/2041-8213/ac5c5b
+
+The reference CSV was corrected after the source-table discrepancy was
+recorded and reviewed.

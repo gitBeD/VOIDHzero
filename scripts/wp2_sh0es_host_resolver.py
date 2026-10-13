@@ -293,13 +293,33 @@ def main():
 
     host_out = pd.DataFrame(rows)
 
-    # Reference coordinates are intentionally NOT selected silently when
-    # services disagree. For a consistent result, use SIMBAD coordinates as
-    # the machine-readable reference and retain NED for cross-check.
+    # SIMBAD coordinates are retained as the machine-readable reference.
+    # They are provisional unless SIMBAD and NED agree within tolerance.
     host_out["reference_RA_deg"] = host_out["SIMBAD_RA_deg"]
     host_out["reference_DEC_deg"] = host_out["SIMBAD_DEC_deg"]
-    host_out["reference_source"] = host_out["resolver_status"].map(
-        lambda x: "SIMBAD+NED" if x == "resolved_consistent" else ""
+
+    def determine_reference_status(row):
+        if row["resolver_status"] == "resolved_consistent":
+            return "cross_checked"
+
+        if (
+                pd.notna(row["SIMBAD_RA_deg"])
+                and pd.notna(row["SIMBAD_DEC_deg"])
+        ):
+            return "provisional_simbad_only"
+
+        return "unavailable"
+
+    host_out["reference_status"] = host_out.apply(
+        determine_reference_status, axis=1
+    )
+
+    host_out["reference_source"] = host_out["reference_status"].map(
+        {
+            "cross_checked": "SIMBAD+NED",
+            "provisional_simbad_only": "SIMBAD",
+            "unavailable": "",
+        }
     )
 
     args.host_output.parent.mkdir(parents=True, exist_ok=True)
@@ -323,6 +343,7 @@ def main():
                 "reference_RA_deg",
                 "reference_DEC_deg",
                 "reference_source",
+                "reference_status",
             ]
         ],
         on=["source_host", "normalized_query_name"],

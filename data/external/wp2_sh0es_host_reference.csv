@@ -6,7 +6,7 @@ CID,source_host,normalized_query_name,status
 1997bp,N4680,NGC 4680,exact
 1997bq,N3147,NGC 3147,exact
 1998aq,N3982,NGC 3982,exact
-1998dh,N5861,NGC 5861,exact
+1998dh,N7541,NGC 7541,exact
 1999dq,N0976,NGC 976,exact
 2001bg,N2608,NGC 2608,exact
 2001el,N1448,NGC 1448,exact
@@ -14,7 +14,7 @@ CID,source_host,normalized_query_name,status
 2002dp,N7678,NGC 7678,exact
 2002fk,N1309,NGC 1309,exact
 2003du,U9391,UGC 9391,exact
-2005W,N3254,NGC 3254,exact
+2005W,N0691,NGC 691,exact
 2005cf,N5917,NGC 5917,exact
 2005df,N1559,NGC 1559,exact
 2005df_ANU,N1559,NGC 1559,source_not_in_Riess_Table6
