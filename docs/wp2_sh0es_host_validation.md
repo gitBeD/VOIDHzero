@@ -95,14 +95,52 @@ provisional reference values pending independent verification.
 
 ## Current status
 
-The host-validation stage is therefore:
+The corrected reference table contains 43 CID rows and 37 unique hosts.
 
-- 7 hosts: automatically consistent
-- 3 hosts: manually reviewable, both services agree on identity
-- 25 hosts: NED validation pending due to query timeout
+The resolver outputs distinguish between:
 
-No redshift, 3D-environment, or H0 calculation should use the
-25 timeout cases as independently validated hosts.
+- 30 hosts with SIMBAD and NED coordinates consistent within the
+  configured 1 arcsec service-to-service threshold
+- 7 hosts with provisional SIMBAD-only reference coordinates,
+  marked `review_required`
+
+The 1 arcsec criterion is a diagnostic coordinate-consistency flag.
+It does not establish the scientific correctness of a host assignment.
+
+The separate NED positional audit currently covers 35 hosts with
+`audit_status=resolved`. It describes the distribution of historical
+NED positions relative to SIMBAD coordinates and is not a substitute
+for the 37-host resolver validation.
+
+No redshift, 3D-environment, or H0 result is established by these
+validation outputs alone.
+
+## NED positional audit
+
+A separate descriptive analysis of `wp2_ned_position_audit.csv`
+was run using `scripts/wp2_ned_audit_summary.py`.
+
+The audit included 35 hosts with `audit_status=resolved`.
+
+Results using a 1 arcsec diagnostic threshold:
+
+- 28 of 35 hosts have a NED fiducial-to-SIMBAD separation <= 1 arcsec.
+- 7 of 35 exceed that threshold.
+- The median fiducial separation is 0.435 arcsec.
+- The median of the per-host medians of historical NED-position
+  separations is 0.696 arcsec.
+
+The fiducial separation and the median of historical position
+separations are not interchangeable measures. Some hosts pass one
+diagnostic and fail the other.
+
+The NED position list combines measurements from different sources,
+epochs, and potentially different measurement qualities. These
+statistics are descriptive and do not determine which coordinate is
+the scientifically correct galaxy centre.
+
+This audit does not automatically change host assignments or
+establish a void/wall classification.
 
 ## Important scientific constraint
 
