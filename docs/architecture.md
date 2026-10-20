@@ -254,7 +254,7 @@ Details: `docs/wp2_calibrators.md`
 | Kalibratorstichprobe | entschieden: 43 eindeutige SNe (aus 77 Zeilen) |
 | SDSS-Spec-Match (3″) | 0/43, strukturell erklärt (Tracerkatalog beginnt bei z ≈ 0,01) |
 | Host-Zuordnung | NSA + DLR mit Sentinel-Regel, in Arbeit |
-| Redshift-Spalte für Positionen | offen; Vorschlag zCMB/zHEL, zHD als Sensitivität |
+| Redshift-Spalte für Positionen | offen; Variantenvergleich liegt vor (Median 1,2–2,2 Mpc/h, Max 4,4–5,9); Vorschlag zCMB/zHEL, zHD als Sensitivität |
 | Rolle des Host-Matches für M4 | offen; Vorschlag: nicht mehr M4-Kriterium |
 | Mindest-N-Schwelle | offen; vor Klassifikation committen |
 | Void/Wall-Klassifikation der Kalibratoren | ausstehend |
