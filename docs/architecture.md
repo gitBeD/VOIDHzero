@@ -1,9 +1,16 @@
 # Architektur
 
 Dieses Dokument beschreibt die Umsetzung von Abschnitt 6 des Exposés
-("Theoretischer und methodischer Rahmen") als Code.
+("Theoretischer und methodischer Rahmen") als Code und hält den aktuellen
+Projektstatus fest.
 
-## Die zentrale Designregel
+**Stand:** 20.10.2026
+**Konvention:** Aussagen sind getrennt nach *entschieden*, *vorgeschlagen* und
+*offen*. Nichts, was als "vorgeschlagen" markiert ist, ist bereits Projektkonvention.
+
+---
+
+## 1. Die zentrale Designregel
 
 > Kein Analyseschritt oberhalb von Schicht 2 darf einen survey-spezifischen
 > Namen, eine survey-spezifische Spalte oder eine survey-spezifische Maske
@@ -12,181 +19,70 @@ Dieses Dokument beschreibt die Umsetzung von Abschnitt 6 des Exposés
 Konkret umgesetzt durch:
 
 1. **`TracerCatalog`** (Schicht 1) und **`VoidCatalog`** (Schicht 2) sind die
-   einzigen Datenstrukturen, die Schicht 3 aufwärts jemals sehen. Sie tragen
+   einzigen Datenstrukturen, die Schicht 3 aufwärts sehen. Sie tragen
    ausschließlich normalisierte Feldnamen (`ra_deg`, `z`, `environment_class`, …).
-2. Jeder Survey-/Void-Finder-spezifische Adapter ist eine konkrete
-   Unterklasse von `TracerAdapter` bzw. `VoidFinderAdapter`. Ein Wechsel des
-   Basis-Surveys (Meilenstein **M3**) bedeutet: neue Unterklasse schreiben,
-   Schicht 3–5 unverändert lassen.
-3. Schicht 0 (Kosmologie) ist orthogonal zu allem: sie kennt weder Survey
-   noch Void-Finder, sondern liefert nur Distanzmaße auf Basis der einen
+2. Jeder Survey-/Void-Finder-spezifische Adapter ist eine Unterklasse von
+   `TracerAdapter` bzw. `VoidFinderAdapter`. Ein Wechsel des Basis-Surveys
+   (Meilenstein **M3**) bedeutet: neue Unterklasse schreiben, Schicht 3–5
+   unverändert lassen.
+3. Schicht 0 (Kosmologie) ist orthogonal zu allem: Sie kennt weder Survey noch
+   Void-Finder, sondern liefert nur Distanzmaße auf Basis der einen
    eingefrorenen Referenzkosmologie.
 
-## Zirkularität (Exposé Abschnitt 9)
+## 2. Status auf einen Blick
+
+| Baustein | Status |
+|---|---|
+| WP0 — Grundgerüst, alle 6 Schichten, Blinding-Protokoll | erledigt (Blinding-Seed noch Demo) |
+| WP1 — `SDSSDR7TracerAdapter`, maskenbasierte Randoms | erledigt |
+| Schicht 2 — `VASTVoidFinderAdapter` + Provenienz-Erzwingung | erledigt, gegen echten Lauf verifiziert (siehe Abschnitt 6) |
+| Referenz-SN-Ia-Kompilation | entschieden: Pantheon+ & SH0ES |
+| RF-D — kontinuierliche Umgebungsdichte | umgesetzt (`layer3_environment/density.py`) |
+| WP2 — Kalibrator-Zuordnung | in Arbeit; Coverage-Diagnose liegt vor, Void/Wall-Klassifikation ausstehend |
+| M4 — Machbarkeitsentscheidung | offen, siehe Abschnitt 10 und `wp2_calibrators.md` |
+
+Es gibt weiterhin **keinen Nachweis** einer H₀-Abhängigkeit von der kosmischen
+Umgebung. Der bisherige Fortschritt betrifft Datenaufbereitung, Validierung und
+Machbarkeit.
+
+---
+
+## 3. Kosmologie und Zirkularität (Exposé Abschnitt 9)
 
 Void-Kataloge sind selbst kosmologieabhängig konstruiert (Redshift → Distanz
-braucht bereits eine Kosmologie). Die Trennung von Schicht 0 als *einzige*
-Quelle für Distanzmaße stellt sicher, dass:
+braucht bereits eine Kosmologie). Schicht 0 als *einzige* Quelle für Distanzmaße
+stellt sicher, dass
 
-- dieselbe Referenzkosmologie sowohl in den Void-Finder-Adaptern (Schicht 2)
-  als auch in der finalen H0-Propagation (Schicht 5) verwendet wird,
-- eine Änderung der Referenzkosmologie ein bewusster, versionierter Schritt
-  ist (Änderung von `configs/cosmology.yaml`, dokumentiert im Analyseplan-
-  Changelog), nicht ein impliziter Seiteneffekt.
+- dieselbe Referenzkosmologie in den Void-Finder-Adaptern (Schicht 2) und in der
+  finalen H₀-Propagation (Schicht 5) verwendet wird,
+- eine Änderung der Referenzkosmologie ein bewusster, versionierter Schritt ist
+  (Änderung von `configs/cosmology.yaml`, dokumentiert im Analyseplan-Changelog).
 
-Der geforderte **Invarianztest** (Zeile "Kosmologie-Zirkularität nicht
-ausräumbar" in der Risikotabelle) ist mit diesem Aufbau direkt durchführbar:
-`scripts/run_demo_pipeline.py` (oder ein WP1-Äquivalent mit echten Daten)
-zweimal mit unterschiedlichen `configs/cosmology.yaml`-Varianten laufen lassen
-und prüfen, ob der Umgebungs-Step (Schicht 4) stabil bleibt.
+Der geforderte **Invarianztest** ist damit direkt durchführbar:
+`scripts/run_demo_pipeline.py` (oder ein WP1-Äquivalent mit echten Daten) zweimal
+mit unterschiedlichen `configs/cosmology.yaml`-Varianten laufen lassen und prüfen,
+ob der Umgebungs-Step (Schicht 4) stabil bleibt.
 
-## Robustheitsflag (WP1)
+**Aktuelle Referenz (Schicht 0):** `H0 = 67.4 km/s/Mpc`, `Om0 = 0.315`, flach ΛCDM.
 
-`layer3_environment.assign_environment` implementiert den "dreistufigen
-Robustheitsflag" aus dem WP1-Zielprodukt:
+**VAST-Konvention (Quelltextprüfung):** komovierende Distanz,
+`Ωm = 0,26`, `h = 1`, Längen in Mpc/h, Funktion `z_to_comoving_dist`.
 
-| Flag | Bedeutung |
-|---|---|
-| `robust` | alle beigezogenen Void-Finder-Algorithmen stimmen überein |
-| `marginal` | Mehrheit, aber keine Einstimmigkeit |
-| `edge_excluded` | Patt, oder mindestens ein Algorithmus meldet Randnähe zur Maske |
+> **Hinweis:** Die VAST-Defaults (`Ωm = 0,26`) weichen von der Schicht-0-Referenz
+> (`Ωm = 0,315`) ab. Die Provenienzprüfung (Abschnitt 6) bricht bei abweichendem
+> H0/Om0 absichtlich ab. Wo Distanzen für den VoidFinder-Raum berechnet werden
+> (insbesondere Kalibratorpositionen in WP2), ist die Kosmologie des
+> VoidFinder-Laufs explizit über `cosmology=` zu übergeben, nicht still die
+> Schicht-0-Default-Kosmologie zu verwenden.
 
-RF-B ("Wie stabil ist die Void/Wand-Zuordnung über verschiedene
-Void-Finder-Algorithmen … hinweg?") wird operationalisiert, indem
-`assign_environment` mit den Labels von ≥ 2 `VoidFinderAdapter`-Implementierungen
-aufgerufen wird und der Anteil `robust` vs. `marginal` vs. `edge_excluded`
-selbst zum berichteten Ergebnis wird.
+---
 
-## Blinding-Protokoll (WP0)
+## 4. Schicht 1 — SDSS-DR7-Tracer (WP1)
 
-`layer4_statistics.Blinder` implementiert ein simples Commitment-Schema:
-
-1. Vor jeder Analyse wird ein geheimer Seed gewählt (nicht im Repository!).
-2. `Blinder(secret_seed=...).commitment_hash()` — ein SHA-256-Hash des Seeds
-   — wird **vor** der Analyse dokumentiert (z. B. im eingefrorenen Analyseplan,
-   siehe `scripts/freeze_analysis_plan.py`).
-3. Alle Residuen werden mit `Blinder.blind(...)` verschoben, bevor sie das
-   Team sieht.
-4. Bei Meilenstein **M6 (Entblindung)** wird der Seed offengelegt; jeder kann
-   dessen SHA-256-Hash gegen den vorab dokumentierten Commitment-Hash prüfen
-   und dann `Blinder.unblind(...)` anwenden.
-
-Dies verhindert nicht *Data Snooping* im Sinne multipler Tests — dafür sind
-die vorab (Abschnitt 5) festgelegten Erfolgskriterien zuständig — sondern
-*Confirmation Bias* während der Methodenentwicklung.
-
-## Offene Punkte, bevor WP0 als abgeschlossen gelten kann
-
-Diese Liste ist eine Eins-zu-eins-Übertragung von Exposé Abschnitt 9,
-"Offene Entscheidungen".
-
-- [x] finaler Basis-Survey + Katalogversion (Phase 1): **SDSS DR7
-      Hauptstichprobe, volumenlimitiert, z ≲ 0,11, M_r < -20,09** — identisch
-      zum Referenz-Survey von VoidFinder/VAST (Douglass, Veyrat & BenZvi 2023,
-      ApJS 265, 7). `SDSSDR7TracerAdapter` (`layer1_tracers/sdss_dr7_adapter.py`)
-      ersetzt `DemoTracerAdapter` für echte Daten; Eingabeformat ist 1:1
-      kompatibel zur offiziellen VAST-API (`ra`, `dec`, `redshift`, `rabsmag`
-      als `ascii.commented_header`/FITS/HDF5).
-- [x] **Referenz-SN-Ia-Kompilation festgelegt**: **Pantheon+ & SH0ES**
-      (Scolnic et al. 2022, ApJ 938, 113; Brout et al. 2022, ApJ 938, 110;
-      Riess et al. 2022, ApJL 934, L7). 1701 Lichtkurven für 1550
-      spektroskopisch bestätigte SNe Ia, `0.001 < z < 2.26`, öffentlich unter
-      https://github.com/PantheonPlusSH0ES/DataRelease.
-      **Begründung** (direkt WP2/RF-C-relevant): Pantheon+ ist die einzige
-      der drei geprüften Kompilationen (Pantheon+, Union3, DES-SN5YR), die
-      öffentlich **individuelle Koordinaten sowohl der Kalibrator-Stichprobe
-      (Cepheiden-/TRGB-Wirte, per `IS_CALIBRATOR`-Flag markiert) als auch der
-      Hubble-Flow-Stichprobe** liefert — exakt das Cross-Match-Datenpaar, das
-      WP2 (COVE, Δf_void) braucht. Union3 liegt nur als gebinnte
-      Distanzmodul-Tabelle vor (keine Einzelobjekt-Koordinaten); DES-SN5YR
-      fixiert H0 extern statt eine eigene Kalibrator-Host-Stichprobe zu
-      führen. Beide sind daher für die "Kalibrator vs. Hubble-Flow"-
-      Fragestellung strukturell schlechter geeignet, obwohl sie für reine
-      Kosmologie-Fits attraktiv sind.
-      **Standardisierung**: übernommen (SALT2-Standardisierung wie von
-      Pantheon+ veröffentlicht), nicht neu gefittet — Kapazität bleibt für
-      den Umgebungs-Step statt für einen SN-Standardisierungs-Neufit.
-      **Optional**: Union3 als Robustheits-Cross-Check in WP4/WP5, falls
-      Zeit vorhanden ist — nicht als Ersatz für Pantheon+.
-      **Offener Folgepunkt (RF-D-Ticket)**: kontinuierliche
-      Umgebungsdichte-Variable als zweiter, paralleler Pfad neben der
-      diskreten void/wall-Klassifikation (Schicht 3, nicht Schicht 2 — die
-      Layer-Regel aus Abschnitt 6 gilt auch hier).
-      **Korrektur einer früheren Annahme**: `VASTVoidFinderAdapter`
-      (Schicht 2, s.o.) liest VoidFinder-Ausgaben — VoidFinder selbst ist ein
-      Sphere-Growing-Algorithmus (El-Ad & Piran 1997; Hoyle & Vogeley 2002),
-      der Voids als Vereinigung von Kugeln definiert (`MAXIMALS`/`HOLES`);
-      es gibt dabei KEINE Voronoi-Zellvolumina als Zwischenergebnis. Die
-      Voronoi-Tesselation steckt stattdessen in **V² (Vsquared)**, dem
-      zweiten, ZOBOV-basierten (Neyrinck 2008) Watershed-Algorithmus im
-      VAST-Toolkit — bestätigt in der VAST-Dokumentation
-      (https://vast.readthedocs.io/en/latest/Vsquared_intro.html): V²
-      "first produces a Voronoi tessellation ... and the volumes of the
-      Voronoi cells are used to identify local density minima". Das ist
-      ohnehin der in Exposé Abschnitt 6 für Phase 1 vorgesehene
-      "ZOBOV-basierte Kreuzcheck" und wird für RF-B (≥ 2 unabhängige
-      Void-Finder-Algorithmen, WP1) so oder so gebraucht.
-      **Damit zwei konkrete Optionen statt einer offenen Design-Frage:**
-      - **Option A (bevorzugt)**: kontinuierliche Dichte aus den
-        V²/Vsquared-Voronoi-Zellvolumina — praktisch kostenlos, sobald der
-        V²-Adapter für den WP1-Robustheitscheck ohnehin gebaut wird (kein
-        zusätzlicher Rechenlauf, nur ein zusätzliches Datum aus einem
-        bereits geplanten Lauf).
-      - **Option B (Fallback)**: eigenständiger kNN- oder DTFE-Schätzer,
-        unabhängig von beiden Adaptern — mehr Implementierungsaufwand, aber
-        entkoppelt vom V²-Zeitplan, falls dieser sich verzögert.
-      **Nächster Schritt vor Implementierung** (reine Recherche, kein
-      Design): prüfen, ob `vast.vsquared` die Voronoi-Zellvolumina der
-      Tracer tatsächlich als zugängliches Zwischenergebnis exportiert
-      (nicht nur die fertigen Void-/Zonen-Kataloge) — falls ja, Option A;
-      falls nein, Option B.
-      **Rechercheergebnis (erledigt)**: Die Standard-`.fits`-Ausgabe von V²
-      (`GALZONE`-HDU: `gal`, `zone`, `depth`, `edge`, `out`) exportiert
-      **keine** Zellvolumina — nur die fertige Zonen-/Void-Zugehörigkeit.
-      Eine Wiederverwendung wäre also kein kostenloses Nebenprodukt eines
-      ohnehin geplanten V²-Laufs, sondern erforderte einen
-      nicht-standardmäßigen Eingriff. **Damit gewählt: Option B**, aber
-      NICHT als eigenständiger kNN-/DTFE-Schätzer, sondern als eigene
-      Voronoi-Tesselation direkt mit `scipy.spatial` (Kernabhängigkeit,
-      keine VAST-/Windows-Abhängigkeit) — implementiert in
-      `layer3_environment/density.py`
-      (`compute_local_density()`/`voronoi_cell_volumes()`). Lokale Dichte
-      = inverses Voronoi-Zellvolumen relativ zum **Median** (nicht
-      Mittelwert — Zellvolumina sind rechtsschief verteilt, ein
-      Mittelwert-Referenzwert würde durch einzelne sehr große Randzellen
-      verzerrt). Objekte mit unbeschränkter Zelle (Rand der Punktwolke)
-      werden als `is_edge_cell=True` markiert statt einen irreführenden
-      endlichen Wert zu bekommen. 22 Tests, laufen vollständig ohne
-      astropy. **Bewusste verbleibende Einschränkung**: keine
-      Randoms-/Masken-Korrektur der Tesselation selbst — echte
-      Randobjekte innerhalb der Survey-Maske, aber nahe am Rand der
-      Tracer-Punktwolke, können noch künstlich unterschätzte Dichte haben;
-      nächster Verfeinerungsschritt wäre eine Tesselation über
-      Tracer+Randoms gemeinsam.
-- [ ] Kollaborationsrahmen
-- [ ] Rechenressourcen/Datenvolumen für Phase 3 (Rubin/Roman)
-- [ ] echter, sicher verwahrter Blinding-Seed (aktuell nur Demo-Default in
-      `scripts/freeze_analysis_plan.py`)
-- [ ] Schwellenwert für das Nullergebnis-Erfolgskriterium
-      (`SUCCESS_CRITERIA["null_result"]["max_H0_contribution_percent"]`)
-- [ ] Mindeststichprobengröße für das Abbruchkriterium
-      (`SUCCESS_CRITERIA["abort_criterion"]["min_calibrator_sample_size"]`)
-- [x] **neuer WP1-Punkt, erledigt**: `SDSSDR7TracerAdapter` verwendet jetzt
-      standardmäßig (`randoms_mode="mask"`) eine aus dem Datenkatalog
-      abgeleitete, gepixelte Fußabdruckmaske (`layer1_tracers/mask_randoms.py`)
-      statt einer reinen RA/Dec-Bounding-Box: sphärisch korrekte Zufalls­positionen
-      innerhalb belegter Gitterzellen (uniform in RA, uniform in sin(Dec),
-      Zellen flächengewichtet ausgewählt) und Redshifts durch Resampling aus
-      der empirischen n(z)-Verteilung der Daten statt uniform in z.
-      `footprint_area_deg2()` liefert nach einem `mask`-Lauf die sphärisch
-      exakte Maskenfläche statt der groben Bounding-Box-Fläche.
-      **Bewusste Einschränkung**: das ist noch keine echte photometrische
-      Survey-Maske (Mangle-Polygone/offizielle HEALPix-Maske mit
-      Bohrlöchern für helle Sterne, Plattenränder etc.) — dafür bräuchte es
-      `pymangle` oder die offizielle SDSS-DR7-Maskendatei. Der alte
-      `randoms_mode="bbox"` bleibt zu Vergleichszwecken erhalten.
-
-## Echten SDSS-DR7-Katalog anbinden (WP1)
+**Entschieden:** Basis-Survey ist die volumenlimitierte SDSS-DR7-Hauptstichprobe
+(`z ≲ 0,11`, `M_r < -20,09`), identisch zum Referenz-Survey von VoidFinder/VAST
+(Douglass, Veyrat & BenZvi 2023, ApJS 265, 7). Eingabeformat ist 1:1 kompatibel
+zur VAST-API (`ra`, `dec`, `redshift`, `rabsmag`).
 
 ```python
 from voidh0.layer1_tracers import SDSSDR7TracerAdapter
@@ -198,274 +94,194 @@ adapter = SDSSDR7TracerAdapter(
 tracers = adapter.load()
 ```
 
-Bezugsquellen für eine echte Katalogdatei (nicht im Repository, da
-Drittanbieter-Datenprodukt mit mehreren zehn MB):
+Bezugsquellen (nicht im Repository):
 
 - VAST-Beispielkatalog `vollim_dr7_cbp_102709.dat` im GitHub-Repo `DESI-UR/VAST`
   (`VAST/example_scripts/`)
-- Peer-reviewte Void-Kataloge zu Douglass, Veyrat & BenZvi (2023),
-  ApJS 265, 7 — auf Zenodo unter "VAST void catalogs for SDSS DR7"
+- Void-Kataloge zu Douglass, Veyrat & BenZvi (2023), auf Zenodo
 
-Benötigt zusätzlich `astropy` (nur für diesen einen Adapter, siehe
-`pip install -e ".[dev]"`); der Rest des Frameworks bleibt astropy-frei.
+Benötigt `astropy` (nur für diesen Adapter); der Rest des Frameworks bleibt astropy-frei.
 
-Standardmäßig (`randoms_mode="mask"`) werden Randoms aus einer gepixelten
-Fußabdruckmaske gezogen, die direkt aus dem eingelesenen Katalog abgeleitet
-wird — kein zusätzlicher Dateibedarf. Für den einfacheren Vergleichsmodus:
+**Randoms (erledigt):** Standardmäßig `randoms_mode="mask"`
+(`layer1_tracers/mask_randoms.py`): aus dem Datenkatalog abgeleitete, gepixelte
+Fußabdruckmaske; sphärisch korrekte Randoms (uniform in RA, uniform in sin(Dec),
+Zellen flächengewichtet); Redshifts per Resampling aus der empirischen n(z).
+`footprint_area_deg2()` liefert die sphärisch exakte Maskenfläche.
+`randoms_mode="bbox"` bleibt zum Vergleich erhalten.
 
-```python
-adapter = SDSSDR7TracerAdapter(
-    catalog_path="...",
-    n_synthetic_randoms=50_000,
-    randoms_mode="bbox",  # statt "mask" (Default)
-)
-```
+*Bewusste Einschränkung:* keine echte photometrische Survey-Maske (Mangle-Polygone
+bzw. offizielle HEALPix-Maske mit Bohrlöchern für helle Sterne, Plattenränder).
+Dafür bräuchte es `pymangle` oder die offizielle SDSS-DR7-Maskendatei.
 
-## Schicht 2: echte VAST/VoidFinder-Anbindung — WICHTIGER PLATTFORM-HINWEIS
+---
 
-`VASTVoidFinderAdapter` (`layer2_voidfinder/vast_adapter.py`) liest die
-**offizielle VAST-Ausgabedatei** (`[survey_name]_VoidFinder_Output.fits`,
-HDUs `MAXIMALS`/`HOLES`/optional `MASK`) ein — er führt VoidFinder NICHT
-in-process aus. Grund: Die VAST-Entwickler unterstützen Windows offiziell
-NICHT (Cython-Kern lässt sich dort nicht zuverlässig kompilieren, zusätzlich
-fehlt der von VoidFinder benötigte POSIX-`fork()`-Systemaufruf) — siehe
-https://vast.readthedocs.io/en/latest/VAST_install.html.
+## 5. Void-Finder-Familien: VoidFinder vs. V²
 
-**Workflow für einen echten Lauf (auf Windows z. B. via WSL2):**
+- **VoidFinder** ist ein Sphere-Growing-Algorithmus (El-Ad & Piran 1997;
+  Hoyle & Vogeley 2002). Voids sind Vereinigungen von Kugeln (`MAXIMALS`/`HOLES`).
+  Es gibt **keine** Voronoi-Zellvolumina als Zwischenergebnis.
+- **V² (Vsquared)** ist der zweite, ZOBOV-basierte Watershed-Algorithmus im
+  VAST-Toolkit (Voronoi-Tesselation, Neyrinck 2008). Er ist der in Exposé
+  Abschnitt 6 vorgesehene "ZOBOV-basierte Kreuzcheck" und wird für RF-B
+  (≥ 2 unabhängige Algorithmen) gebraucht.
+- Die V²-`.fits`-Ausgabe (`GALZONE`-HDU: `gal`, `zone`, `depth`, `edge`, `out`)
+  exportiert **keine** Zellvolumina.
 
-1. In WSL2/Linux (oder einer Linux-VM/einem Cluster): VAST offiziell
-   installieren (`git clone https://github.com/DESI-UR/VAST`, dann
-   `python setup.py install` gemäß deren Anleitung)
-2. Den mit `SDSSDR7TracerAdapter` erzeugten Katalog (oder direkt die
-   `vollim_dr7_cbp_102709.dat`) in `VAST/example_scripts/SDSS_VoidFinder_dr7.py`
-   einsetzen und laufen lassen
-3. Die entstehende `[survey_name]_VoidFinder_Output.fits` zurück nach Windows
-   kopieren (WSL2 hat direkten Zugriff auf `C:\...`, umgekehrt auch)
-4. In voidh0:
-   ```python
-   from voidh0.layer2_voidfinder import VASTVoidFinderAdapter
+---
 
-   adapter = VASTVoidFinderAdapter("/pfad/zu/survey_VoidFinder_Output.fits")
-   voids = adapter.find_voids(tracers)  # tracers wird nur fuer Interface-
-                                          # Kompatibilitaet erwartet, nicht
-                                          # zur Berechnung verwendet
-   labels = adapter.classify(ra, dec, z, voids)
-   ```
+## 6. Schicht 2 — VAST/VoidFinder-Anbindung
 
-**Kosmologie-Konsistenz (wichtig!):** Die (ra, dec, z) → (x, y, z)-Umrechnung
-in `classify()` MUSS dieselbe Kosmologie verwenden, mit der VoidFinder extern
-lief. Standardmäßig nutzt der Adapter Schicht 0
-(`load_reference_cosmology()`); lief der externe VoidFinder-Aufwand mit
-anderem `h`/`Ωm`, muss das per `cosmology=`-Argument übergeben werden —
-sonst sind die Sphere-Vergleiche in `classify()` inkonsistent (genau die
-"Kosmologie-Zirkularität" aus Abschnitt 9).
+`VASTVoidFinderAdapter` (`layer2_voidfinder/vast_adapter.py`) liest die offizielle
+VAST-Ausgabedatei (`[survey_name]_VoidFinder_Output.fits`; HDUs `MAXIMALS`, `HOLES`,
+optional `MASK`) ein. Er führt VoidFinder **nicht** in-process aus: VAST wird
+unter Windows offiziell nicht unterstützt (Cython-Kern, fehlender `fork()`).
 
-**Sphärengenaue Klassifikation:** Anders als `DemoVoidFinderAdapter` nutzt
-`classify()` hier die volle `HOLES`-Tabelle (Union aller Spheres eines
-Voids), nicht nur die Maximal-Sphere — exakt VASTs eigene Definition
-("Is my object in a void?" in der VAST-Doku). Ist eine `MASK`-HDU in der
-Ausgabedatei vorhanden, werden Objekte außerhalb der Survey-Maske als
-`"edge"` markiert.
+**Workflow (Linux/WSL2):**
 
-`DemoVoidFinderAdapter` bleibt für Framework-Entwicklung/Tests ohne
-WSL2-Abhängigkeit nutzbar; `VASTVoidFinderAdapter` ist der Weg zu einem
-echten, publikationsfähigen Void-Katalog.
+1. VAST installieren (`git clone https://github.com/DESI-UR/VAST`; aktuelle
+   Anleitung: https://vast.readthedocs.io/en/latest/VAST_install.html).
+2. `example_scripts/SDSS_VoidFinder_dr7.py` auf der DR7-Stichprobe laufen lassen.
+3. Provenienz-Sidecar direkt danach erzeugen:
 
-## Kosmologie-Konsistenz jetzt geprüft, nicht nur dokumentiert
-
-Der obige Abschnitt beschrieb die Kosmologie-Konsistenz-Anforderung bisher
-nur als Empfehlung — `VASTVoidFinderAdapter` prüft sie jetzt tatsächlich
-(`layer2_voidfinder/provenance.py`):
-
-1. Direkt nach einem externen VoidFinder-Lauf (WSL2/Linux):
    ```bash
    python3 scripts/write_voidfinder_provenance.py \
        --output survey_VoidFinder_Output.fits \
        --source-catalog vollim_dr7_cbp_102709.dat
    ```
-   Schreibt `survey_VoidFinder_Output.fits.provenance.json` daneben — hält
-   fest, mit welcher Kosmologie (H0, Om0) und welchem (per SHA-256
-   geprüften) Eingabekatalog gerechnet wurde.
 
-2. Diese `.provenance.json`-Datei muss zusammen mit der `.fits`-Datei zurück
-   nach Windows kopiert werden.
+4. `.fits` und `.fits.provenance.json` **gemeinsam** in das Projekt kopieren.
+5. Einlesen:
 
-3. `VASTVoidFinderAdapter.find_voids()` liest sie automatisch und **bricht
-   standardmäßig ab** (`ProvenanceMissingError`/`ProvenanceMismatchError`),
-   wenn die Sidecar-Datei fehlt oder H0/Om0 nicht zur aktuell aktiven
-   Schicht-0-Kosmologie passen — statt still falsche Ergebnisse zu liefern.
-   Für schnelle Experimente ohne diese Prüfung: `require_provenance=False`
-   (nicht empfohlen für publikationsreife Läufe).
+   ```python
+   from voidh0.layer2_voidfinder import VASTVoidFinderAdapter
 
-Damit ist die "Kosmologie-Zirkularität" aus Abschnitt 9 an dieser Stelle
-nicht mehr nur eine Doku-Empfehlung, sondern eine tatsächlich durchgesetzte
-Bedingung.
+   adapter = VASTVoidFinderAdapter("/pfad/zu/survey_VoidFinder_Output.fits")
+   voids = adapter.find_voids(tracers)   # tracers nur für Interface-Kompatibilität
+   labels = adapter.classify(ra, dec, z, voids)
+   ```
 
-## WP2-Diagnosekriterium: Kalibrator-Umgebungs-Überlappung (Review-Ergänzung)
+**Provenienz-Erzwingung:** `find_voids()` bricht standardmäßig ab
+(`ProvenanceMissingError` / `ProvenanceMismatchError`), wenn die Sidecar-Datei
+fehlt oder H0/Om0 nicht zur aktiven Schicht-0-Kosmologie passen. Der Eingabekatalog
+wird per SHA-256 geprüft. `require_provenance=False` nur für Experimente.
 
-Ergänzung zum Exposé (Abschnitt 9, "Neu: Kalibrator-Umgebungs-Überlappung"):
-Die Pantheon+/SH0ES-Kalibratoren (Cepheiden/TRGB-Wirte) liegen überwiegend
-bei z ≲ 0,01 (≲ 40–45 Mpc) — eine Größenordnung näher als die für Phase 1
-vorgesehene SDSS-DR7-Grenze (z ≲ 0,11). Gerade in diesem hellen,
-nahen Helligkeitsbereich hat die SDSS-DR7-Hauptstichprobe-Spektroskopie
-dokumentierte Inkomplettheiten (Fiber-Magnitude-Schnitt, Shredding großer
-heller Galaxien, 55″-Fiber-Kollisionen — siehe Strauss et al. 2002 und die
-offizielle SDSS-Zielauswahl-Dokumentation). Die Anzahl der Cepheiden-Wirte
-ist deshalb NICHT gleichzusetzen mit der Anzahl der für die
-VoidFinder-Umgebungsklassifikation tatsächlich verfügbaren Kalibratoren.
+**Klassifikation:** `classify()` nutzt die volle `HOLES`-Tabelle (Union aller
+Sphären eines Voids), nicht nur die Maximal-Sphäre. Ist eine `MASK`-HDU vorhanden,
+werden Objekte außerhalb der Maske als `"edge"` markiert.
 
-**Konsequenz für WP2 (Code-Ebene)**: Der COVE-Cross-Match (WP2) sollte pro
-Kalibrator-Wirt vier Flags erheben, nicht nur ein binäres void/wall-Label:
+`DemoVoidFinderAdapter` bleibt für Entwicklung/Tests ohne WSL2 nutzbar.
 
-1. SDSS-photometrische Deckung vorhanden?
-2. SDSS-spektroskopischer Redshift vorhanden?
-3. Umgebungsklassifikation mit hinreichender Robustheitsstufe möglich
-   (vgl. `layer3_environment.assign_environment`-Robustheitsflag)?
-4. resultierende Void/Wand-Klassifikation.
+---
 
-Das ist mit den bereits vorhandenen Bausteinen (`SDSSDR7TracerAdapter`,
-`assign_environment`) direkt umsetzbar, sobald eine öffentliche
-Kalibrator-Koordinatenliste (Pantheon+/SH0ES-`DataRelease`,
-`IS_CALIBRATOR`-Flag) als Eingabe vorliegt — noch nicht implementiert,
-aber als nächster WP2-Schritt hier vermerkt. Volle Risiko-/Mitigations-
-Formulierung inkl. der drei Ausweichstrategien (hybrider Low-z-Katalog,
-erweiterte Kalibratorstichprobe via JWST/TRGB/JAGB, invertierte
-Analyselogik) steht im Exposé, Abschnitt 9.
+## 7. Schicht 3 — Umgebung
 
-## WP2-Skript: HOST_RA/HOST_DEC-Fallback (empirischer Fund, 24.09.2026)
+### 7.1 Robustheitsflag (WP1)
 
-Erster echter Lauf von `scripts/wp2_calibrator_diagnosis.py` gegen die reale
-`Pantheon+SH0ES.dat` ergab `n_with_position: 0` von 77 Kalibratoren --
-zunächst überraschend. Ursache: Im offiziellen Pantheon+/SH0ES-Datenrelease
-ist das dedizierte `HOST_RA`/`HOST_DEC`-Feld durchgehend mit `-999`
-(fehlend) belegt; die SN-eigenen `RA`/`DEC`-Spalten sind dagegen gefüllt.
+`layer3_environment.assign_environment` implementiert den dreistufigen Flag:
 
-**Fix**: `wp2_cove._resolve_position()` fällt jetzt automatisch auf die
-SN-Position zurück, wenn `HOST_RA`/`HOST_DEC` fehlen -- methodisch
-vertretbar, da eine Supernova innerhalb ihrer Wirtsgalaxie explodiert und
-ihre Position auf der für den SDSS-Crossmatch nötigen Bogensekunden-
-Genauigkeit eine gute Näherung ist. Jede `CalibratorDiagnosisRow` trägt
-jetzt `position_source` (`"host"` / `"sn_position"` / `"missing"`) zur
-Transparenz -- wichtig für die spätere Fehlerbudget-Diskussion in WP4,
-falls die SN-Host-Winkel-Trennung (`HOST_ANGSEP`, im echten Release
-teilweise auch `-9`/fehlend) für einzelne Kalibratoren doch relevant groß
-sein sollte.
+| Flag | Bedeutung |
+|---|---|
+| `robust` | alle beigezogenen Void-Finder stimmen überein |
+| `marginal` | Mehrheit, aber keine Einstimmigkeit |
+| `edge_excluded` | Patt, oder mindestens ein Algorithmus meldet Randnähe zur Maske |
 
-## WP2-Skript: Deduplizierung nach eindeutiger Kalibrator-Galaxie
+RF-B wird operationalisiert, indem `assign_environment` mit den Labels von
+≥ 2 `VoidFinderAdapter`-Implementierungen aufgerufen wird; der Anteil
+`robust`/`marginal`/`edge_excluded` ist selbst ein berichtetes Ergebnis.
 
-Ergänzung zum obigen HOST_RA/HOST_DEC-Fund: Der echte Lauf zeigte zusätzlich,
-dass die 77 IS_CALIBRATOR=1-Zeilen NICHT 77 verschiedene Galaxien sind,
-sondern 77 Lichtkurven-Einträge -- dieselbe Supernova (gleiche CID) taucht
-mehrfach auf, weil mehrere Analyse-Pipelines (`IDSURVEY`) sie unabhängig
-gefittet haben (z.B. `2007af` viermal). Das löst die im Exposé offen
-gelassene "77 vs. 42"-Unstimmigkeit auf: Riess et al. (2022) meinen mit
-"42 Type Ia supernovae" im Titel die eindeutigen Galaxien, nicht die
-Lichtkurven-Zeilen.
+### 7.2 Kontinuierliche Umgebungsdichte (RF-D, umgesetzt)
 
-`load_pantheon_calibrators()` dedupliziert jetzt standardmäßig
-(`deduplicate=True`) nach CID, behält pro eindeutiger Galaxie die erste
-Zeile in Datei-Reihenfolge. `find_duplicate_cids()` macht die Duplikate vor
-der Deduplizierung transparent (welche CID wie oft). Das CLI-Skript zeigt
-beide Zahlen (roh vs. dedupliziert) und listet die gefundenen Duplikate.
+Zweiter Pfad neben der diskreten void/wall-Klassifikation (Schicht 3, nicht
+Schicht 2). Da V² keine Zellvolumina exportiert, ist die Wiederverwendung kein
+kostenloses Nebenprodukt. **Gewählt:** eigene Voronoi-Tesselation mit
+`scipy.spatial` (`layer3_environment/density.py`:
+`compute_local_density()`, `voronoi_cell_volumes()`).
 
-**Bewusste Einschränkung**: reiner CID-Exakt-Match. Fälle wie `2005df` vs.
-`2005df_ANU` (vermutlich dieselbe Supernova, andere Team-Pipeline, andere
-Schreibweise) werden NICHT automatisch zusammengeführt -- das bräuchte eine
-zusätzliche, fallweise Prüfung (z.B. Redshift- oder Positions-Übereinstimmung)
-und ist ein offener Verfeinerungspunkt für WP2.
+- Lokale Dichte = inverses Voronoi-Zellvolumen relativ zum **Median** (Zellvolumina
+  sind rechtsschief; ein Mittelwert würde durch große Randzellen verzerrt).
+- Unbeschränkte Zellen (Rand der Punktwolke) werden als `is_edge_cell=True`
+  markiert statt mit einem irreführenden Endwert versehen.
+- 22 Tests, laufen ohne astropy.
 
-## WP2 Flag 2: 0/43 SDSS-Spec-Matches — strukturell erklärt, nicht defekt (26.09.2026)
+*Bewusste Einschränkung:* keine Randoms-/Masken-Korrektur der Tesselation selbst.
+Objekte innerhalb der Maske, aber nahe am Rand der Tracer-Punktwolke, können
+unterschätzte Dichte haben. Nächster Verfeinerungsschritt: Tesselation über
+Tracer + Randoms gemeinsam.
 
-Echter Lauf von `wp2_calibrator_diagnosis.py --sdss-catalog
-data/external/vollim_dr7_cbp_102709.dat` gegen alle 43 eindeutigen
-Kalibrator-Galaxien ergab **0 SDSS-Spec-Matches**. Diagnose (Linux-Team):
-kein einziger Kalibrator hat überhaupt einen SDSS-Tracer innerhalb von
-3 Bogensekunden — das Problem liegt schon vor der Redshift-Toleranzprüfung.
-Beispiel: nächstes Objekt zu SN 2011fe (z≈0,00122) liegt 8,34 Bogenminuten
-entfernt bei z≈0,099.
+---
 
-**Ursache (durch Literatur bestätigt, nicht nur vermutet)**: `vollim_dr7_
-cbp_102709.dat` ist die volumenlimitierte Stichprobe aus Pan et al. (2012),
-auf der `VASTVoidFinderAdapter` aufbaut — und diese Stichprobe beginnt
-selbst erst bei z ≈ 0,01 (Pan et al. 2012 zitiert nach Nachfolgearbeiten:
-Void-Redshifts "0.01 ≲ z ≲ 0.102"). Die Pantheon+/SH0ES-Kalibratoren liegen
-überwiegend deutlich darunter (Median weit unter 0,01; nur `2007A`,
-z=0,0168, und `1999dq`, z=0,0131, erreichen überhaupt die Untergrenze der
-Tracer-Stichprobe). Die 0/43-Quote ist damit eine STRUKTURELLE Folge der
-Katalogkonstruktion, kein Bug in `crossmatch_sdss_spec()` oder in der
-Positionsermittlung (die für Flag 1 bereits korrekt validiert wurde).
+## 8. Schicht 4 — Blinding-Protokoll (WP0)
 
-Damit ist das in Abschnitt 9 des Exposés als Risiko formulierte Szenario
-("unzureichende Überlappung von Distanzkalibratoren und vollständiger
-3D-Galaxienkartierung") nicht mehr nur eine begründete Befürchtung, sondern
-mit echten Daten quantifiziert bestätigt: 0 von 43 (0 %) — schlimmer als im
-Risikotext ursprünglich befürchtet.
+`layer4_statistics.Blinder` implementiert ein Commitment-Schema:
 
-**Empfohlener nächster Schritt**: NASA-Sloan Atlas (NSA) statt
-`vollim_dr7_cbp_102709.dat` als Tracer-Quelle für den SDSS-Crossmatch.
-Douglass, Veyrat & BenZvi (2023) sind selbst von der KIAS-VAGC/NYU-VAGC-
-Basis (Pan et al. 2012) auf NSA umgestiegen, mit der Begründung: "the NSA
-better handles large galaxies, preventing them from being segmented into a
-number of spurious small unique objects" — exakt das im Exposé (Abschnitt
-9) beschriebene Shredding-Problem. NSA deckt vermutlich auch den sehr
-niedrigen z-Bereich (< 0,01) besser ab, in dem die Kalibratoren liegen.
-Noch nicht umgesetzt — Bezugsquelle und exaktes Format sind ein offener
-Rechercheschritt, bevor `SDSSDR7TracerAdapter` oder ein neuer
-`NSATracerAdapter` darauf aufgesetzt werden kann.
+1. Vor jeder Analyse wird ein geheimer Seed gewählt (nicht im Repository).
+2. `Blinder(secret_seed=...).commitment_hash()` (SHA-256) wird **vor** der Analyse
+   dokumentiert (`scripts/freeze_analysis_plan.py`).
+3. Alle Residuen werden mit `Blinder.blind(...)` verschoben, bevor das Team sie sieht.
+4. Bei M6 wird der Seed offengelegt; der Hash lässt sich prüfen, dann
+   `Blinder.unblind(...)`.
 
-## WP2: VoidFinder-Tracerkatalog – Positionsaudit der Kalibratoren
+Das verhindert *Confirmation Bias* bei der Methodenentwicklung, nicht
+*Data Snooping* durch multiple Tests (dafür sind die vorab festgelegten
+Erfolgskriterien zuständig).
 
-Der VoidFinder-Tracerkatalog ist als Referenz für einen direkten 3″-Crossmatch
-der 43 Kalibratoren ungeeignet: 29 Positionen liegen außerhalb des
-umschließenden RA/Dec-Rechtecks. Bei den 14 Positionen innerhalb des Rechtecks
-liegt das nächste Katalogobjekt jeweils 166–852″ entfernt. Damit gibt es auch
-innerhalb des umschließenden Rechtecks keinen knapp verfehlten 3″-Match.
-Die grobe Katalog-Flächendichte legt nahe, dass diese Abstände nicht auf eine
-besondere räumliche Nähe zu den Katalogobjekten hinweisen; die
-Abstandsverteilung innerhalb des tatsächlichen Footprints wurde jedoch nicht
-direkt gemessen. Die Ursache der Abwesenheit – etwa eine Rotverschiebungs-
-oder Helligkeitsgrenze – ist nicht abschließend bestimmt.
+---
 
-## WP2/DLR: NSA-v1.0.1-Qualitätsregel für SERSIC_TH50-Sentinel (27.09.2026)
+## 9. Referenz-SN-Ia-Kompilation (entschieden)
 
-Während der Host-Zuordnung per Directional Light Radius (DLR-Methode,
-siehe unten) fiel bei der Kontrollprobe für SN 2011fe auf, dass mehrere
-NSA-Kandidaten im Suchkegel denselben ungewöhnlich großen `SERSIC_TH50`-Wert
-trugen. Systematische Prüfung über den gesamten NSA-v1.0.1-Katalog:
+**Pantheon+ & SH0ES** (Scolnic et al. 2022, ApJ 938, 113; Brout et al. 2022,
+ApJ 938, 110; Riess et al. 2022, ApJL 934, L7). 1701 Lichtkurven, 1550
+spektroskopisch bestätigte SNe Ia, `0,001 < z < 2,26`.
+Quelle: https://github.com/PantheonPlusSH0ES/DataRelease.
 
-**Empirische NSA-v1.0.1-Qualitätsregel**: `SERSIC_TH50 = 159,7578125″`
-tritt in 4.802 von 641.409 NSA-Einträgen (0,75 %) exakt identisch auf. Der
-Wert zeigt eine starke Häufung und tritt zusammen mit Sérsic-Index-Werten
-an den Modellgrenzen (`n=0,5` bzw. `n=6,0`) auf. Dies wird als empirischer
-Hinweis auf eine algorithmische Begrenzung bzw. nicht vertrauenswürdige
-Sérsic-Geometrie interpretiert. **Die Interpretation ist nicht durch die
-offizielle NSA-Dokumentation bestätigt.** Daher werden solche Kandidaten in
-WP2 aus der DLR-Hostzuordnung ausgeschlossen, ohne den jeweiligen
-SN-Kalibrator zu verwerfen.
+**Begründung:** Pantheon+ ist unter den geprüften Kompilationen (Pantheon+,
+Union3, DES-SN5YR) die einzige mit öffentlichen **Einzelobjekt-Koordinaten für
+Kalibrator-Stichprobe (`IS_CALIBRATOR`) und Hubble-Flow-Stichprobe** — das
+Datenpaar, das WP2 (COVE, Δf_void) braucht. Union3 liegt nur gebinnt vor;
+DES-SN5YR fixiert H₀ extern.
 
-Zusatzbefunde, die die Interpretation stützen (aber sie nicht offiziell
-belegen):
-- Der Wert ist eine exakte dyadische Zahl (`20449/128`, Nenner = 2⁷) —
-  ungewöhnlich für ein genuines Fit-Ergebnis an kontinuierlichen Bilddaten.
-- Räumlich über den gesamten Himmel verteilt (RA 0,002°–359,906°,
-  Dec −22,0°–+82,4°) — kein lokales Deblending-Cluster eines einzelnen
-  großen Systems (z. B. M101), sondern katalogweit.
-- `SERSIC_N=0,5` bzw. `6,0` allein ist bewusst **kein** eigenständiges
-  Ausschlusskriterium — beide Werte kommen auch bei Objekten mit normalem
-  `TH50` vor; nur die Kombination mit dem exakten Sentinel-Wert ist
-  aussagekräftig.
+**Standardisierung:** übernommen (SALT2 wie veröffentlicht), nicht neu gefittet.
+**Optional:** Union3 als Robustheits-Cross-Check in WP4/WP5.
 
-**Umsetzung** (nur in der DLR-spezifischen Pipeline
-`scripts/wp2_nsa_dlr_diagnosis.py`, NICHT in `scripts/wp2_nsa_diagnosis.py`
-oder `wp2_dlr_control_2011fe.py`, die unverändert bleiben):
-- `TH50_SENTINEL = 159.7578125`, `TH50_SENTINEL_ATOL = 1e-6`
-- Kandidat wird nur aus dem DLR-Ranking entfernt, der Kalibrator bleibt
-  erhalten
-- kein Petrosian-Fallback (siehe 2011fe-Befund: `PETRO_TH50` kann bei
-  großen nahen Galaxien um Faktor ~80 zu klein sein, wäre also kein
-  verlässlicher Ersatzwert)
-- bleibt kein valider Kandidat übrig → Status explizit
-  "keine vertrauenswürdige Geometrie gefunden", nicht stillschweigend
-  "kein Host"
-- Ausschlüsse werden pro Kalibrator im Ergebnis-Output mitgezählt
-  (`n_excluded_sentinel`), nicht kommentarlos verworfen
+---
+
+## 10. WP2 — Kalibrator-Zuordnung
+
+Details: `docs/wp2_calibrators.md`
+
+| Punkt | Status |
+|---|---|
+| Kalibratorstichprobe | entschieden: 43 eindeutige SNe (aus 77 Zeilen) |
+| SDSS-Spec-Match (3″) | 0/43, strukturell erklärt (Tracerkatalog beginnt bei z ≈ 0,01) |
+| Host-Zuordnung | NSA + DLR mit Sentinel-Regel, in Arbeit |
+| Redshift-Spalte für Positionen | offen; Vorschlag zCMB/zHEL, zHD als Sensitivität |
+| Rolle des Host-Matches für M4 | offen; Vorschlag: nicht mehr M4-Kriterium |
+| Mindest-N-Schwelle | offen; vor Klassifikation committen |
+| Void/Wall-Klassifikation der Kalibratoren | ausstehend |
+
+---
+
+## 11. Offene Punkte, bevor WP0/M4 abgeschlossen sind
+
+- [x] Basis-Survey und Katalogversion (SDSS DR7, Abschnitt 4)
+- [x] Referenz-SN-Ia-Kompilation (Pantheon+ & SH0ES, Abschnitt 9)
+- [x] RF-D umgesetzt (Abschnitt 7.2)
+- [x] Maskenbasierte Randoms (Abschnitt 4)
+- [ ] Redshift-Konvention für Kalibratorpositionen (`wp2_calibrators.md`, Abschnitt 4)
+- [ ] Rolle des Host-Matches für M4 (`wp2_calibrators.md`, Abschnitt 8)
+- [ ] Mindeststichprobengröße für das Abbruchkriterium
+- [ ] Schwellenwert für das Nullergebnis-Kriterium
+      (`SUCCESS_CRITERIA["null_result"]["max_H0_contribution_percent"]`)
+- [ ] Echter, sicher verwahrter Blinding-Seed (aktuell Demo-Default in
+      `scripts/freeze_analysis_plan.py`)
+- [ ] Kollaborationsrahmen
+- [ ] Rechenressourcen/Datenvolumen für Phase 3 (Rubin/Roman)
+
+## 12. Epistemischer Status
+
+Die 35 bisher dokumentierten Unit-Tests (`wp2_cove`, `SDSSDR7TracerAdapter`)
+bestätigen getestete Softwarefunktionen, nicht die wissenschaftliche Gültigkeit
+der Survey-Überlappung oder der Umweltklassifikation. Die vierstufige
+WP2-Diagnose ist nicht abgeschlossen; die Void-/Wall-/Edge-Zuordnung der
+Kalibratoren bleibt ausstehend, bis die räumliche Zuordnung nachvollziehbar
+validiert ist.
