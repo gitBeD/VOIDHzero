@@ -23,3 +23,6 @@ data/external/ned_position_audit_raw/
 # Lokale Backups und Windows-Metadaten
 data/external/*.bak
 data/external/*:Zone.Identifier
+.idea/
+*.bak
+*.save
