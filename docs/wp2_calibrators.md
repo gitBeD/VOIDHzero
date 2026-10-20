@@ -57,7 +57,7 @@ quantitativ belegt (Host-Match 0/43).
 3. Umgebungsklassifikation mit hinreichender Robustheitsstufe möglich?
 4. Resultierende Void/Wand-Klassifikation.
 
-## 4 Redshift-Konvention (offen — Vorschlag)
+## 4 Redshift-Konvention (offen — Variantenvergleich liegt vor)
 
 Zu wählen ist, welche Pantheon+-Spalte die Kalibratorpositionen bestimmt:
 
@@ -67,16 +67,88 @@ Zu wählen ist, welche Pantheon+-Spalte die Kalibratorpositionen bestimmt:
 | `zCMB` | CMB-Bezug | Kandidat |
 | `zHD` | für das Hubble-Diagramm aufbereitet | bisher in `data/external/wp2_sh0es_calibrator_xyz.csv` verwendet; **keine** getroffene Entscheidung |
 
-**Vorgeschlagen (nicht entschieden):** Die Void-Karte wurde im Redshift-Raum aus
-beobachteten Redshifts gebaut. Primärvariante daher `zCMB` oder `zHEL`, je nach
-tatsächlichem Bezugssystem des Tracerkatalogs (in den Quelldaten zu prüfen).
-`zHD` enthält nach bisherigem Kenntnisstand Pekuliargeschwindigkeitskorrekturen
-und eignet sich als Sensitivitätsvariante, nicht als Primärvariante. Bei
-D < 40 Mpc entsprechen ca. 300 km/s etwa 3 h⁻¹ Mpc, vergleichbar mit der
-Void-Randzone.
+### 4.1 Ergebnis des Variantenvergleichs
 
-Die Entscheidung ist anhand des Analyseziels und der VAST-Referenzlaufkonvention
-zu begründen, nicht durch stilles Umschalten der Spalte.
+Quelle: `scripts/wp2_compare_redshift_variants.py`,
+`data/external/wp2_sh0es_redshift_variant_comparison.csv`,
+`docs/wp2_redshift_variant_comparison.md`. Distanzvorschrift wie bisher
+(`Ωm = 0,26`, `h = 1`, komovierend, Mpc/h), 43 Kalibratoren.
+
+| Vergleich | Median \|Δr\| | Maximum \|Δr\| |
+|---|---|---|
+| zCMB − zHD | 1,225 Mpc/h | 4,400 Mpc/h |
+| zHEL − zHD | 2,151 Mpc/h | 5,863 Mpc/h |
+
+- Die Verschiebungen sind rein **radial** (RA/Dec fest); die maximale
+  XYZ-Verschiebung entspricht der radialen.
+- Plausibilitätscheck: Bei diesen Redshifts gilt Δr ≈ 3000 Mpc/h · Δz
+  (z. B. 2013aa: Δz = 0,00147 → 4,40 Mpc/h). Die Zahlen sind mit einem
+  linearen Hubble-Gesetz konsistent; der Ωm-Anteil ist vernachlässigbar.
+- Größte Verschiebungen zCMB − zHD: 2013aa und 2017cbv (+4,40), 2013dy (−4,16),
+  1990N (+3,08). Größte zHEL − zHD: 2019np (−5,86), 1995al (−5,05),
+  1994ae (−4,82). Veröffentlicht ist nur die Top-10-Liste; die Vollständigkeit
+  der Statistik hängt an der CSV.
+- Das ist ein **Positionssensitivitätstest, kein H₀-Ergebnis.**
+
+### 4.2 Auffälligkeiten in den Daten (zu prüfen)
+
+1. **Mehrere CIDs im selben Wirt.** 2013aa und 2017cbv haben praktisch dieselbe
+   Position und identische Redshifts; 2021hpr, 1997bq und 2008fv_comb liegen
+   innerhalb von ca. 2′ zueinander. Das stützt die Zählung **pro Wirtsgalaxie**
+   statt pro SN (Abschnitt 1): Die 43 eindeutigen CIDs sind vermutlich weniger
+   als 43 unabhängige Umgebungsmessungen. Die Wirtsidentität ist per
+   NED/SIMBAD zu bestätigen, hier nur aus den Positionen abgeleitet.
+2. **Redshift-Unterschiede innerhalb eines Wirts.** 2021hpr hat `zHD = 0,01044`,
+   1997bq und 2008fv_comb `zHD = 0,01079` (Differenz ca. 105 km/s), obwohl sie
+   nach den Positionen im selben System liegen. Die Quelle des jeweiligen
+   Redshifts (Wirt oder SN) ist zu klären.
+3. **`zHD` ist nicht durchgängig von `zCMB` verschieden.** Für 2012ht und 2012cg
+   gilt `zHD = zCMB`. Eine einheitliche Pekuliargeschwindigkeitskorrektur in
+   `zHD` ist damit für die nahen Kalibratoren nicht belegt; in der
+   Pantheon+-Dokumentation nachzulesen.
+
+### 4.3 Einordnung
+
+Die Verschiebungen von 1–6 Mpc/h liegen in der Größenordnung der
+Void-Randzone und sind bei D < 40 Mpc nicht zu vernachlässigen. Die Wahl
+verändert damit potenziell die Klassifikation einzelner Kalibratoren, vor allem
+nahe Void-Rändern und nahe der unteren Grenze des Tracerkatalogs (`z ≈ 0,01`,
+ca. 30 Mpc/h).
+
+**Vorgeschlagen (nicht entschieden):**
+
+- **Primärvariante `zCMB` oder `zHEL`**, abhängig vom tatsächlichen
+  Bezugssystem des Tracerkatalogs (noch in den Quelldaten bzw. bei Pan et al.
+  2012 nachzulesen). Begründung: Die Void-Karte liegt im Redshift-Raum. Eine
+  konsistente Zuordnung braucht beobachtete Redshifts im selben Bezugssystem.
+- `zHD` und eine Variante mit unabhängigen Primärdistanzen (siehe 4.4) als
+  **Sensitivitätsvarianten**.
+- **Primärvariante vor der Klassifikation committen.** Wird sie erst nach Sicht
+  der Void/Wall-Anteile gewählt, ist die Auswahl post hoc. Die Variantenspanne
+  (Anteil der Kalibratoren, deren Klasse zwischen den Varianten wechselt) wird
+  dann als Systematik berichtet, nicht zur Auswahl benutzt.
+
+### 4.4 Alternative: Primärdistanz statt Redshift-Distanz
+
+Kalibratoren besitzen Cepheiden-/TRGB-Distanzen mit einer Genauigkeit von
+einigen Prozent (ca. 1–2 Mpc bei 30 Mpc). Bei z ≈ 0,003–0,01 sind
+Pekuliargeschwindigkeiten (ca. 300 km/s) bezogen auf cz (ca. 900–3000 km/s)
+nicht klein, die Redshift-Distanz ist dort also ungenau. Zwei Vorbehalte:
+
+- Die Void-Karte ist im Redshift-Raum konstruiert. Eine Zuordnung im Realraum
+  wäre mit der Karte nicht ohne Weiteres konsistent.
+- Die Umrechnung in h⁻¹ Mpc braucht ein h; das ist eine milde Zirkularität in
+  einem Projekt über H₀.
+
+Als Sensitivitätsvariante sinnvoll, als Primärvariante nur nach Prüfung dieser
+beiden Punkte.
+
+### 4.5 Kosmologie
+
+Die Distanzen sind mit der VAST-Konvention (`Ωm = 0,26`, `h = 1`) gerechnet,
+das passt zum VoidFinder-Lauf. Die Schicht-0-Referenz (`Ωm = 0,315`) weicht ab;
+`cosmology=` ist bei der Zuordnung explizit zu setzen
+(siehe `architecture.md`, Abschnitt 3).
 
 ## 5 Kartesische Kalibratorkoordinaten
 
@@ -154,15 +226,19 @@ etwa 0,5–1 %. Eine solche Stichprobe könnte bestenfalls eine Obergrenze liefe
 
 ## 10 Nächste Schritte (Reihenfolge)
 
-1. Redshift-Bezugssystem des Tracerkatalogs klären; Primärvariante festschreiben.
-2. Distanzen und XYZ für `zHEL`, `zCMB`, `zHD` gegenüberstellen und Unterschiede
-   dokumentieren.
-3. VAST-Kompatibilität prüfen (Bezugssystem, Kosmologie, Distanzdefinition).
-4. Crossmatch entkoppeln: nächster Katalogeintrag allein nach Winkelabstand, dann
-   Redshiftdifferenz, Maskenstatus und radiale Abdeckung separat.
-5. Survey-Abdeckung unabhängig validieren (offizielle Survey-Maske, wenn möglich).
-6. Radiale Abdeckung gegen `dist_limits` prüfen.
-7. Mindest-N-Schwelle committen.
-8. Erst danach Void-/Wall-/Edge-Klassifikation berichten; dann M4-Entscheidung.
+1. ~~Distanzen und XYZ für `zHEL`, `zCMB`, `zHD` gegenüberstellen.~~ **Erledigt**
+   (Abschnitt 4.1).
+2. Redshift-Bezugssystem des Tracerkatalogs klären (Quelldaten, Pan et al. 2012,
+   VAST-Quelltext).
+3. Auffälligkeiten aus 4.2 prüfen: Wirtsidentität der Mehrfach-CIDs, Herkunft der
+   Redshifts, `zHD`-Korrektur in der Pantheon+-Dokumentation.
+4. **Primärvariante festschreiben und committen** (vor Schritt 8).
+5. Radiale Abdeckung gegen `dist_limits` prüfen, jeweils für alle drei Varianten.
+6. Crossmatch entkoppeln: nächster Katalogeintrag allein nach Winkelabstand, dann
+   Redshiftdifferenz, Maskenstatus und radiale Abdeckung separat. Survey-Abdeckung
+   wenn möglich mit einer offiziellen Maske validieren.
+7. Mindest-N-Schwelle committen, gezählt pro Wirtsgalaxie.
+8. Erst danach Void-/Wall-/Edge-Klassifikation berichten (Primärvariante plus
+   Variantenspanne); dann M4-Entscheidung.
 
 ---
