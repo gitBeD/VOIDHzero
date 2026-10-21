@@ -1,0 +1,4 @@
+]1341;command_started;command=6563686f2022564153542072656d6f74653a20202428676974202d43207e2f766f696468302d6c696e75782d776f726b2f564153542072656d6f7465206765742d75726c206f726967696e2922VAST remote:  https://github.com/DESI-UR/VAST.git
+Basis-Commit: 24e66e197bc88c924b42c338ac82f5b538d66dd3
+Fix-Commit:   2a04491
+Anwenden:     git checkout <Basis-Commit> && git am /pfad/zu/vast_distance_unitfix.patch

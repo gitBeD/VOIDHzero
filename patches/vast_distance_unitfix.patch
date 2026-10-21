@@ -1,0 +1,114 @@
+From 2a04491030a3878018880bf2471951211c4d882a Mon Sep 17 00:00:00 2001
+From: gitBeD <bernd.sulzmann@gmail.com>
+Date: Wed, 21 Oct 2026 07:28:21 +0200
+Subject: [PATCH] Fix comoving distance units in VoidFinder
+
+---
+ python/vast/voidfinder/distance.pyx  |  4 +-
+ python/vast/voidfinder/voidfinder.py |  2 +-
+ tests/test_distance_units.py         | 58 ++++++++++++++++++++++++++++
+ 3 files changed, 61 insertions(+), 3 deletions(-)
+ create mode 100644 tests/test_distance_units.py
+
+diff --git a/python/vast/voidfinder/distance.pyx b/python/vast/voidfinder/distance.pyx
+index 73f471a..33d7e11 100644
+--- a/python/vast/voidfinder/distance.pyx
++++ b/python/vast/voidfinder/distance.pyx
+@@ -85,7 +85,7 @@ cpdef np.ndarray z_to_comoving_dist(DTYPE_F32_t[:] z_input,
+     
+     cdef DTYPE_F32_t[:] out_dists_array = output_comov_dists
+     
+-    cdef DTYPE_F32_t H0 = 100.0*h
++
+     
+     cdef ITYPE_t idx
+     
+@@ -114,7 +114,7 @@ cpdef np.ndarray z_to_comoving_dist(DTYPE_F32_t[:] z_input,
+         
+         retval = _quadpack._qagse(R_W_interval, a_start, 1.0, (omega_M,), 0, 1.49e-8, 1.49e-8, 50)
+                                 
+-        out_dists_array[idx] = (<DTYPE_F32_t>retval[0])*(c/H0)
++        out_dists_array[idx] = (<DTYPE_F32_t>retval[0])*(c/100.0)
+         
+     return output_comov_dists
+         
+diff --git a/python/vast/voidfinder/voidfinder.py b/python/vast/voidfinder/voidfinder.py
+index 795d772..91d9801 100644
+--- a/python/vast/voidfinder/voidfinder.py
++++ b/python/vast/voidfinder/voidfinder.py
+@@ -296,7 +296,7 @@ def ra_dec_to_xyz(galaxy_table,
+         
+     else:
+         
+-        r_gal = c*galaxy_table['redshift'].data/(100*h)
++        r_gal = c*galaxy_table['redshift'].data/100.0
+         
+         
+     ra = galaxy_table['ra'].data
+diff --git a/tests/test_distance_units.py b/tests/test_distance_units.py
+new file mode 100644
+index 0000000..d0fbd48
+--- /dev/null
++++ b/tests/test_distance_units.py
+@@ -0,0 +1,58 @@
++import numpy as np
++from scipy.integrate import quad
++
++from vast.voidfinder.distance import z_to_comoving_dist
++
++
++C_KM_S = 299792.458
++OMEGA_M = 0.315
++Z_VALUES = np.array([0.0, 0.01, 0.05, 0.10], dtype=np.float32)
++
++
++def reference_distance_mpc_over_h(z, omega_m):
++    """Independent flat-LCDM reference distance in h^-1 Mpc."""
++    integral, _ = quad(
++        lambda zp: 1.0 / np.sqrt(
++            omega_m * (1.0 + zp) ** 3 + (1.0 - omega_m)
++        ),
++        0.0,
++        float(z),
++    )
++    return (C_KM_S / 100.0) * integral
++
++
++def test_distance_matches_independent_reference():
++    actual = z_to_comoving_dist(
++        Z_VALUES, np.float32(OMEGA_M), np.float32(0.674)
++    )
++    expected = np.array([
++        reference_distance_mpc_over_h(z, OMEGA_M)
++        for z in Z_VALUES
++    ])
++
++    np.testing.assert_allclose(
++        actual, expected, rtol=2e-5, atol=1e-4
++    )
++
++
++def test_distance_is_independent_of_h():
++    distances_h0674 = z_to_comoving_dist(
++        Z_VALUES, np.float32(OMEGA_M), np.float32(0.674)
++    )
++    distances_h1 = z_to_comoving_dist(
++        Z_VALUES, np.float32(OMEGA_M), np.float32(1.0)
++    )
++
++    np.testing.assert_allclose(
++        distances_h0674, distances_h1, rtol=0.0, atol=0.0
++    )
++
++
++def test_zero_redshift_has_zero_distance():
++    result = z_to_comoving_dist(
++        np.array([0.0], dtype=np.float32),
++        np.float32(OMEGA_M),
++        np.float32(0.674),
++    )
++
++    assert result[0] == 0.0
+-- 
+2.53.0
+
