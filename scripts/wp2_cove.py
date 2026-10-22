@@ -1,5 +1,3 @@
-Wp2
-cove · PY
 """WP2 -- Kalibrator-Umgebungs-Diagnose (COVE-Vortest).
 
 Siehe Exposé Abschnitt 9 ("Neu: Kalibrator-Umgebungs-Überlappung") und

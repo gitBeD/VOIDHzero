@@ -26,6 +26,86 @@ Als "vorgeschlagen" markierte Punkte sind noch keine Projektkonvention.
 - **Offen (vorgeschlagen):** Δf_void pro **Wirtsgalaxie** zählen, nicht pro SN;
   mehrere SNe im selben Wirt sind keine unabhängigen Umgebungsmessungen.
 
+### 1.1 Vorläufige Referenzregel für Hostkoordinaten (Stand: 21.10.2026, vorläufig)
+
+**Status:** vorläufig. Die Regel ist keine abschließende Referenz, die Fälle gelten
+nicht als verifiziert.
+
+**Regel**
+
+1. Liefern SIMBAD und NED für einen Wirt unterschiedliche Koordinaten und
+   überschreitet die Abweichung die Konsistenzschwelle, wird der Fall als
+   `needs_review` markiert.
+2. Eine erfolgreiche Zuordnung zur Wirtsgalaxie und zu Pantheon+ ersetzt diese
+   Koordinatenprüfung nicht.
+3. In den sieben derzeit identifizierten Fällen bleiben die bereits verwendeten
+   SIMBAD-Koordinaten **vorläufig** erhalten.
+4. Es erfolgt **keine automatische Quellenwahl** allein anhand der kleineren
+   Koordinatenabweichung.
+5. Die Prüfmarkierungen bleiben bis zur endgültigen Referenzregel bestehen.
+
+
+
+**Konsistenzschwelle:** 
+
+1,0 Bogensekunde (`COORD_CONSISTENCY_ARCSEC = 1.0`
+im Host-Resolver). Sie ist eine vorläufige diagnostische Schwelle zur
+Prüfung der Koordinatenkonsistenz, keine wissenschaftliche Grenze für
+die Identifikation eines Wirts. Sie löst bei Überschreitung eine
+Prüfmarkierung aus; sie entscheidet nicht automatisch, welche Quelle
+wissenschaftlich maßgeblich ist.
+
+**Datenfelder** (Audit-Ausgabe in `data/external/`)
+
+| Spalte | Bedeutung |
+|---|---|
+| `reference_source` | Quelle der vorläufig verwendeten Referenzkoordinaten. |
+| `reference_status` | Status der Referenzkoordinaten, z. B. `provisional_simbad_only` oder `cross_checked`. |
+| `SIMBAD_NED_separation_arcsec` | Winkelabstand zwischen SIMBAD und NED in Bogensekunden. |
+| `host_review_flag` | Prüfmarkierung für den jeweiligen Kalibrator-Wirt. |
+
+Die Feldnamen beziehen sich auf die erzeugte Audit-CSV.
+Die sieben Fälle mit `review_required` bleiben vorläufig auf SIMBAD
+gestützt; ihre Prüfmarkierungen werden nicht entfernt.
+
+**Betroffene Fälle (`needs_review`)**
+
+Die SIMBAD-Koordinaten bleiben vorläufig unverändert. Die Klassen sind derzeit nicht bestimmbar; es wird keine Aussage über einen Klassenwechsel getroffen.
+
+| CID | Wirt | SIMBAD (RA, Dec) | NED (RA, Dec) | Abstand | Klasse unter SIMBAD | Klasse unter NED |
+|---|---|---|---|---:|---|---|
+| 1981B | N4536 | (188.613037, 2.187880) | (188.612780, 2.188240) | 1.592″ | nicht bestimmbar | nicht bestimmbar |
+| 2003du | U9391 | (218.653871, 59.338262) | (218.654380, 59.337890) | 1.633″ | nicht bestimmbar | nicht bestimmbar |
+| 2007af | N5584 | (215.599212, -0.387450) | (215.599000, -0.387670) | 1.101″ | nicht bestimmbar | nicht bestimmbar |
+| 2012fr | N1365 | (53.401908, -36.140658) | (53.401700, -36.140190) | 1.791″ | nicht bestimmbar | nicht bestimmbar |
+| 2012ht | N3447 | (163.349863, 16.772428) | (163.349500, 16.772110) | 1.696″ | nicht bestimmbar | nicht bestimmbar |
+| 2013dy | N7250 | (334.574067, 40.562406) | (334.574090, 40.563080) | 2.429″ | nicht bestimmbar | nicht bestimmbar |
+| 2019np | N3254 | (157.333008, 29.491439) | (157.333160, 29.491840) | 1.520″ | nicht bestimmbar | nicht bestimmbar |
+
+**Einordnung der Abweichungen**
+
+- Für die Void/Wall-Zuordnung ist die Winkelabweichung meist unerheblich: Bei 30 Mpc
+  entspricht 1′ etwa 9 kpc und 1° etwa 0,5 Mpc, die Void-Radien liegen bei
+  10–30 h⁻¹ Mpc.
+- Für den DLR-Host-Match und für Wirtseigenschaften in WP4 zählen dagegen
+  Abweichungen im Bogensekundenbereich.
+- Eine Abweichung in der Größenordnung von Grad deutet nicht auf ein
+  Positionsproblem, sondern auf ein **Identitätsproblem** (falsches Objekt) hin und
+  hat Vorrang bei der Prüfung.
+
+**Sensitivitätsprobe:** 
+
+Mit dem derzeitigen SDSS-DR7-Tracerkatalog ist
+die Void/Wall-Klassifikation für diese sieben Fälle nicht belastbar
+bestimmbar. Ein Vergleich beider Koordinatensätze ist erst mit einem
+geeigneten Tracerkatalog sinnvoll möglich. Falls diese Prüfung erfolgt,
+werden Klassenwechsel und unveränderte Klassen für jeden Fall einzeln
+dokumentiert. Bis dahin bleiben die SIMBAD-Koordinaten vorläufig erhalten
+und alle sieben Prüfmarkierungen bestehen.
+**Endgültige Referenzregel** wird erst nach dokumentierter Prüfung von
+Objektidentität, Quellenangaben und gegebenenfalls der zugrunde liegenden
+astronomischen Literatur festgelegt.
+
 ## 2 Coverage-Diagnose (Befunde)
 
 - **0 von 43** Kalibratoren haben einen SDSS-Spektral-Match innerhalb von 3″.
@@ -49,6 +129,33 @@ verwertbaren räumlichen Zuordnung gegenüber einer Void-Karte.
 Das im Exposé (Abschnitt 9) formulierte Risiko "unzureichende Überlappung von
 Distanzkalibratoren und 3D-Galaxienkartierung" ist damit für den SDSS-DR7-Pfad
 quantitativ belegt (Host-Match 0/43).
+
+### 2.1 Effektive Untergrenze des Tracerkatalogs (Stand: 21.10.2026)
+
+`DLIML = 0` im VoidFinder-Lauf ist ein Laufparameter, keine Eigenschaft der Daten;
+der radiale Abdeckungstest (`radial_min_mpc_h = 0`) war daher nicht trennscharf.
+Gemessen am Lauf `unitfix` (107 490 Tracer, 2,18 sr):
+
+| r (Mpc/h) | Tracer | Anteil an der Mitteldichte (grobe Schätzung) |
+|---|---|---|
+| 0–20 | 13 | ca. 41 % |
+| 20–40 | 80 | ca. 36 % |
+| 40–60 | 304 | ca. 50 % |
+| 60–100 | 3 627 | ca. 116 % |
+
+99,9 % der Tracer liegen jenseits von 42,7 Mpc/h. Alle 14 Kalibratoren in der
+Winkelmaske liegen bei r = 3,7–23,8 Mpc/h, alle 43 bei r ≤ 50,3 Mpc/h.
+
+**Folgerung:** Die Void/Wall-Klasse der Kalibratoren ist im SDSS-DR7-Katalog nicht
+belastbar bestimmbar. Als Untergrenze für klassifizierbare Objekte wird
+`z ≥ 0,02` (ca. 60 Mpc/h) festgesetzt, entsprechend der Konvention anderer
+SDSS-DR7-Void-Arbeiten (nicht aus diesen Daten abgeleitet). Klassifizierbare
+Kalibratoren: **0 von 43**. Damit greift das Abbruchkriterium (Exposé, Abschnitt 5)
+für den SDSS-Pfad.
+
+**Reihenfolge:** Diese Diagnose war vor der Festlegung der Mindest-N-Schwelle
+bekannt. Die Schwelle ist nachträglich festgeschrieben; das Ergebnis hängt nicht
+von ihrem Wert ab.
 
 ## 3 Vier Flags je Kalibrator-Wirt
 
