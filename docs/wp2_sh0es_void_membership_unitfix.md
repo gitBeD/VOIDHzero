@@ -221,3 +221,35 @@ Dies unterstützt die Verwendung des Unit-Fix-Laufs als vorläufige Referenz
 für weitere Validierung. Es ist noch kein Beweis dafür, dass die gesamte
 Void-Geometrie endgültig validiert ist oder dass ein Zusammenhang zwischen
 Void-Umgebung und H0 besteht.
+
+## 9. Vergleich der `hinv`- und `unitfix`-Kataloge
+
+| Prüfkriterium | Ergebnis |
+|---|---|
+| MAXIMALS-Anzahl | 875 in beiden Katalogen |
+| MAXIMALS-Zentren | 873 stimmen bei gleicher ID bis auf kleine numerische Abweichungen überein; die IDs 505 und 506 sind vertauscht |
+| HOLES-Anzahl | 44.423 in beiden Katalogen |
+| Räumliche HOLES-Treffer innerhalb 0,001 Mpc/h | 44.386 von 44.423 (99,92 %) |
+| Abweichende Parent-IDs unter diesen Treffern | 48; alle durch den Tausch der MAXIMALS-IDs 505 und 506 erklärt |
+| Exakte Kataloggleichheit | Nein |
+
+Die mediane Entfernung zum jeweils nächsten HOLES-Zentrum beträgt
+8,43 × 10⁻⁶ Mpc/h. Der größte Abstand beträgt rund 0,01026 Mpc/h; die
+größte Radiusabweichung rund 0,01012 Mpc/h. Der Nächster-Nachbar-Test
+erzwingt keine eindeutige Eins-zu-eins-Zuordnung. Die Ergebnisse belegen
+daher eine weitgehende geometrische Ähnlichkeit, aber keine exakte
+Identität der Kataloge.
+
+Die `hinv`- und `unitfix`-Kataloge sind geometrisch weitgehend ähnlich,
+weisen jedoch kleine numerische Unterschiede und einen Tausch der IDs 505
+und 506 auf. Dieser Katalogvergleich beweist nicht unabhängig, dass der
+Distanz-Patch beim vollständigen VoidFinder-Lauf korrekt kompiliert und
+durchgehend verwendet wurde. Dafür ist eine separate Prüfung des aktiven
+Quellcodes und Builds erforderlich.
+
+**Die Void/Wall-Mitgliedschaft ist nach der Abdeckungsdiagnose für keinen
+der 43 SH0ES-Kalibratoren belastbar.** Insbesondere liegen 14 Kalibratoren
+bei r ≤ 23,8 Mpc/h in einem Bereich, in dem der Tracerkatalog nahezu leer
+ist. Geometrische Treffer innerhalb von Void-Kugeln dürfen deshalb nicht
+als belastbare Void/Wall-Klassifikation interpretiert werden. Siehe
+`docs/wp2_calibrators.md`, Abschnitt 2.1.
