@@ -253,3 +253,13 @@ bei r ≤ 23,8 Mpc/h in einem Bereich, in dem der Tracerkatalog nahezu leer
 ist. Geometrische Treffer innerhalb von Void-Kugeln dürfen deshalb nicht
 als belastbare Void/Wall-Klassifikation interpretiert werden. Siehe
 `docs/wp2_calibrators.md`, Abschnitt 2.1.
+
+**Aktualisierung Build-Audit (21.10.2026):** Dateizeitstempel ergeben diese
+Reihenfolge: `distance.pyx` und `voidfinder.py` geändert 20.10. 23:22,
+`distance.c` neu erzeugt 23:26, Lauf `unitfix` beendet 23:34. Der Lauf
+`hinv` (`h = 1`, beendet 23:03) liegt vor dem Patch, ist aber bei `h = 1`
+vom Patch unabhängig. Der Lauf `unitfix` fällt damit zeitlich in die Phase nach
+dem Patch. Nicht belegt ist, ob er nach dem Neuaufbau der `.so` gestartet wurde;
+die damalige `.so` ist durch den Neubau vom 21.10. 11:26 überschrieben. Die
+Geometrie (Übereinstimmung mit `hinv`, Abweichung vom ungepatchten Originallauf)
+stützt die Annahme. Ein Wiederholungslauf mit Commit `2a04491` schließt die Lücke.
